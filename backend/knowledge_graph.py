@@ -579,6 +579,99 @@ class KnowledgeGraph:
             "relations": [r.to_dict() for r in relations],
         }
 
+    def find_paths(
+        self,
+        source_id: str,
+        target_id: str,
+        max_hops: int = 3,
+        max_paths: int = 10,
+    ) -> Dict[str, Any]:
+        """
+        查询两个实体之间的关联路径（无向视角：A->B<-C 也算一条路径）
+
+        @param source_id: 起点实体 ID
+        @param target_id: 终点实体 ID
+        @param max_hops: 路径最大跳数（1~4，防组合爆炸）
+        @param max_paths: 最多返回的路径条数
+        @return {"paths": [{"nodes": [...], "relations": [...], "length": n}]}
+        """
+        if source_id not in self._entities or target_id not in self._entities:
+            raise ValueError("起点或终点实体不存在")
+        if source_id == target_id:
+            raise ValueError("起点和终点不能相同")
+
+        max_hops = max(1, min(4, max_hops))
+        undirected = self.graph.to_undirected()
+
+        # 无向边 -> 关系 ID 映射（一对实体间可能有多条关系）
+        edge_relations: Dict[frozenset, List[str]] = {}
+        for rel in self._relations.values():
+            edge_relations.setdefault(frozenset((rel.source, rel.target)), []).append(rel.id)
+
+        paths = []
+        # 按跳数从少到多探索，找到 max_paths 条即停
+        for hops in range(1, max_hops + 1):
+            for node_path in nx.all_simple_paths(
+                undirected, source_id, target_id, cutoff=hops
+            ):
+                if len(node_path) - 1 != hops:
+                    continue  # 只收当前跳数的，短跳数的已在前面收过
+                relation_ids: List[str] = []
+                for i in range(len(node_path) - 1):
+                    relation_ids.extend(
+                        edge_relations.get(frozenset((node_path[i], node_path[i + 1])), [])
+                    )
+                paths.append(
+                    {
+                        "nodes": node_path,
+                        "relations": relation_ids,
+                        "length": hops,
+                    }
+                )
+                if len(paths) >= max_paths:
+                    return self._paths_result(source_id, target_id, paths)
+        return self._paths_result(source_id, target_id, paths)
+
+    def _paths_result(
+        self, source_id: str, target_id: str, paths: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """组装路径查询结果：附实体名与关系类型标签，便于前端直读"""
+        enriched = []
+        for p in paths:
+            enriched.append(
+                {
+                    **p,
+                    "node_names": [
+                        self._entities[nid].name for nid in p["nodes"]
+                    ],
+                    "relation_types": [
+                        self._relations[rid].type for rid in p["relations"]
+                    ],
+                }
+            )
+        return {"source": source_id, "target": target_id, "paths": enriched}
+
+    def common_neighbors(self, id_a: str, id_b: str) -> Dict[str, Any]:
+        """
+        查询两个实体的共同邻居（无向视角）
+
+        @return {"common": [实体dict], "only_a": [...], "only_b": [...]}
+        """
+        if id_a not in self._entities or id_b not in self._entities:
+            raise ValueError("实体不存在")
+
+        undirected = self.graph.to_undirected()
+        neighbors_a = set(nx.neighbors(undirected, id_a)) if id_a in undirected else set()
+        neighbors_b = set(nx.neighbors(undirected, id_b)) if id_b in undirected else set()
+
+        common = neighbors_a & neighbors_b
+        return {
+            "a": self._entities[id_a].to_dict(),
+            "b": self._entities[id_b].to_dict(),
+            "common": [self._entities[nid].to_dict() for nid in sorted(common)],
+            "common_count": len(common),
+        }
+
     def search(self, query: str) -> List[Entity]:
         """
         全文搜索实体（按名称模糊匹配）

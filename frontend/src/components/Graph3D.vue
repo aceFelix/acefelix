@@ -23,9 +23,18 @@ const containerRef = ref(null)
 let graphInstance = null
 let ForceGraph3D = null
 const entityColors = ref({})
+const relationLabels = ref({}) // 关系类型代码 -> 中文标签（路径面板显示用）
 const nodeMap = ref({}) // id -> node data
 const loading = ref(true)
 const loadingText = ref('正在加载 3D 引擎...')
+
+// ---------- 图查询交互状态 ----------
+const mode = ref(null) // null | 'focus' | 'path'
+const hlNodes = ref(new Set()) // 高亮节点 id 集合（空 = 无高亮）
+const hlLinks = ref(new Set()) // 高亮关系 id 集合（路径模式用）
+const pathPick = ref(null) // 路径选择状态 { stage: 'start' | 'end', startId }
+const pathResult = ref(null) // 路径查询结果（面板显示）
+const pathHint = ref('') // 路径模式操作提示
 
 // 节点 HTML 标签层相关
 let labelLayer = null // 覆盖在 canvas 上的标签容器
@@ -48,10 +57,182 @@ function nodeRadius(node) {
 }
 
 function createNodeObject(node) {
+  // 高亮激活时，非高亮节点用暗色球体（视觉淡化）
+  const dimmed = hlNodes.value.size > 0 && !hlNodes.value.has(node.id)
   return new THREE.Mesh(
     new THREE.SphereGeometry(nodeRadius(node), 24, 24),
-    new THREE.MeshBasicMaterial({ color: node.color })
+    new THREE.MeshBasicMaterial({ color: dimmed ? '#28303f' : node.color })
   )
+}
+
+/**
+ * 淡化色：高亮激活时非路径/邻域的元素统一压暗
+ */
+const DIM_COLOR = '#1c222d'
+
+/**
+ * 节点颜色 accessor：高亮集合内的节点保持原色，其余暗色
+ */
+function nodeColorFn(node) {
+  if (hlNodes.value.size > 0 && !hlNodes.value.has(node.id)) return DIM_COLOR
+  return node.color
+}
+
+/**
+ * 连线颜色 accessor：
+ * - 路径模式：关系 id 在高亮集合内才亮（精确到边）
+ * - 聚焦模式：两端都在节点集合内才亮
+ */
+function linkColorFn(link) {
+  if (hlNodes.value.size === 0) return link.color
+  if (hlLinks.value.size > 0) {
+    return hlLinks.value.has(link.id) ? link.color : DIM_COLOR
+  }
+  const s = typeof link.source === 'object' ? link.source.id : link.source
+  const t = typeof link.target === 'object' ? link.target.id : link.target
+  return hlNodes.value.has(s) && hlNodes.value.has(t) ? link.color : DIM_COLOR
+}
+
+/**
+ * 高亮状态变化后强制重绘节点/连线颜色
+ */
+function refreshHighlight() {
+  if (!graphInstance) return
+  graphInstance.nodeColor(nodeColorFn)
+  graphInstance.linkColor(linkColorFn)
+  graphInstance.nodeThreeObject((node) => createNodeObject(node))
+}
+
+/**
+ * 清空高亮，恢复全图
+ */
+function resetHighlight() {
+  hlNodes.value = new Set()
+  hlLinks.value = new Set()
+  pathResult.value = null
+  pathPick.value = null
+  pathHint.value = ''
+  mode.value = null
+  refreshHighlight()
+}
+
+/**
+ * 切换交互模式（聚焦 / 路径）
+ */
+function toggleMode(m) {
+  if (mode.value === m) {
+    resetHighlight()
+    return
+  }
+  // 切换前先清一次旧高亮
+  hlNodes.value = new Set()
+  hlLinks.value = new Set()
+  pathResult.value = null
+  pathHint.value = ''
+  refreshHighlight()
+  mode.value = m
+  if (m === 'path') {
+    pathPick.value = { stage: 'start' }
+    pathHint.value = '请点击起点实体'
+  }
+}
+
+/**
+ * 聚焦模式：以 node 为中心，本地 BFS 计算两跳邻域并高亮
+ */
+function focusNeighborhood(node) {
+  // BFS 两跳（无向视角：既看入边也看出边）
+  const adjacency = {}
+  const links = graphInstance.graphData().links
+  links.forEach((l) => {
+    const s = typeof l.source === 'object' ? l.source.id : l.source
+    const t = typeof l.target === 'object' ? l.target.id : l.target
+    ;(adjacency[s] = adjacency[s] || []).push(t)
+    ;(adjacency[t] = adjacency[t] || []).push(s)
+  })
+  const visited = new Set([node.id])
+  let frontier = [node.id]
+  for (let i = 0; i < 2; i++) {
+    const next = []
+    frontier.forEach((id) => {
+      ;(adjacency[id] || []).forEach((nb) => {
+        if (!visited.has(nb)) {
+          visited.add(nb)
+          next.push(nb)
+        }
+      })
+    })
+    frontier = next
+  }
+  hlNodes.value = visited
+  hlLinks.value = new Set() // 聚焦模式按端点判断，无需边集合
+  refreshHighlight()
+}
+
+/**
+ * 路径模式：选起点 -> 选终点 -> 调后端查询并高亮
+ */
+async function handlePathPick(node) {
+  if (!pathPick.value || pathPick.value.stage === 'start') {
+    pathPick.value = { stage: 'end', startId: node.id }
+    pathHint.value = `起点: ${node.name}，请点击终点实体`
+    return
+  }
+  if (pathPick.value.startId === node.id) {
+    pathHint.value = '终点不能与起点相同，请重新点击'
+    return
+  }
+  // 执行查询
+  const startId = pathPick.value.startId
+  pathHint.value = '查询中...'
+  try {
+    const res = await api.getPaths(startId, node.id, 3, 10)
+    const nodes = new Set()
+    const links = new Set()
+    res.paths.forEach((p) => {
+      p.nodes.forEach((id) => nodes.add(id))
+      p.relations.forEach((id) => links.add(id))
+    })
+    hlNodes.value = nodes
+    hlLinks.value = links
+    pathResult.value = res
+    pathHint.value = ''
+    mode.value = null // 查询完成退出选择模式，保留高亮
+    refreshHighlight()
+    if (!res.paths.length) {
+      pathHint.value = '两实体之间 3 跳内无路径'
+    }
+  } catch (err) {
+    pathHint.value = '查询失败: ' + err.message
+  }
+}
+
+/**
+ * 路径文本：甲 -掌握技能-> 乙 -使用工具-> 丙
+ */
+function pathText(p) {
+  return p.node_names
+    .map((name, i) => {
+      if (i >= p.relation_types.length) return name
+      const label = relationLabels.value[p.relation_types[i]] || p.relation_types[i]
+      return `${name} <span class="seg">-${label}-></span>`
+    })
+    .join(' ')
+}
+
+/**
+ * 图内点击节点分流：按当前模式走不同交互
+ */
+function onGraphNodeClick(node) {
+  if (mode.value === 'focus') {
+    focusNeighborhood(node)
+    return
+  }
+  if (mode.value === 'path') {
+    handlePathPick(node)
+    return
+  }
+  emit('select-entity', node.id)
 }
 
 /**
@@ -117,6 +298,9 @@ function updateLabels() {
       const x = (projVec.x * 0.5 + 0.5) * graphW
       const y = (-projVec.y * 0.5 + 0.5) * graphH
       el.style.visibility = 'visible'
+      // 高亮激活时，非高亮节点的标签淡化
+      el.style.opacity =
+        hlNodes.value.size > 0 && !hlNodes.value.has(node.id) ? '0.15' : '1'
       el.style.transform = `translate(${x}px, ${y}px) translate(-50%, calc(-100% - 14px))`
     })
   }
@@ -140,6 +324,7 @@ async function loadGraph() {
     loadingText.value = '正在加载图谱数据...'
     const [meta, graphData] = await Promise.all([api.getMeta(), api.getGraph()])
     entityColors.value = meta.entity_colors
+    relationLabels.value = meta.relation_type_labels || {}
 
     // 构造 3d-force-graph 所需的数据格式
     const nodes = graphData.entities.map((e) => ({
@@ -168,6 +353,7 @@ async function loadGraph() {
     })
 
     const links = graphData.relations.map((r) => ({
+      id: r.id,
       source: r.source,
       target: r.target,
       type: r.type,
@@ -209,12 +395,12 @@ async function loadGraph() {
         })
         // 自定义节点 3D 对象：实心球体（文字由 HTML 覆盖层渲染）
         .nodeThreeObject((node) => createNodeObject(node))
-        .nodeColor((node) => node.color)
+        .nodeColor(nodeColorFn)
         .nodeOpacity(1)
         .nodeVal((node) => node.val)
         .linkLabel((link) => `<span style="color:#ccc;background:rgba(0,0,0,0.7);padding:2px 6px;border-radius:3px;font-size:11px">${link.type}</span>`)
         // 连线：亮色 + 方向箭头 + 流动粒子，增强可读性
-        .linkColor((link) => link.color)
+        .linkColor(linkColorFn)
         .linkOpacity(0.65)
         .linkWidth(1.2)
         .linkDirectionalArrowLength(4.5)
@@ -228,7 +414,13 @@ async function loadGraph() {
         .cooldownTicks(graphConfig.force.cooldownTicks)
         .d3AlphaDecay(graphConfig.force.alphaDecay)
         .onNodeClick((node) => {
-          emit('select-entity', node.id)
+          onGraphNodeClick(node)
+        })
+        .onBackgroundClick(() => {
+          // 点击空白区域：退出高亮/路径选择状态
+          if (mode.value || hlNodes.value.size > 0 || pathResult.value) {
+            resetHighlight()
+          }
         })
         .onNodeDragEnd((node) => {
           // 拖拽后固定节点位置
@@ -369,6 +561,49 @@ defineExpose({ loadGraph, focusNode })
 <template>
   <div class="graph3d-wrapper">
     <div ref="containerRef" class="graph3d-container"></div>
+
+    <!-- 图查询工具条 -->
+    <div class="graph-toolbar">
+      <button
+        class="tool-btn"
+        :class="{ active: mode === 'focus' || (hlNodes.size > 0 && !pathResult) }"
+        title="开启后单击节点，高亮其两跳邻域"
+        @click="toggleMode('focus')"
+      >聚焦</button>
+      <button
+        class="tool-btn"
+        :class="{ active: mode === 'path' }"
+        title="依次点击两个实体，查询它们之间的关联路径"
+        @click="toggleMode('path')"
+      >路径</button>
+      <button
+        v-if="mode || hlNodes.size > 0"
+        class="tool-btn"
+        title="清空高亮，恢复全图"
+        @click="resetHighlight"
+      >重置</button>
+    </div>
+
+    <!-- 路径模式操作提示 -->
+    <div v-if="pathHint" class="path-hint">{{ pathHint }}</div>
+
+    <!-- 路径查询结果面板 -->
+    <div v-if="pathResult && pathResult.paths.length" class="path-panel">
+      <div class="path-panel-header">
+        <span>关联路径（{{ pathResult.paths.length }} 条）</span>
+        <button class="path-close" @click="resetHighlight">✕</button>
+      </div>
+      <div
+        v-for="(p, i) in pathResult.paths"
+        :key="i"
+        class="path-line"
+        :class="{ best: i === 0 }"
+      >
+        <span class="path-len">{{ p.length }}跳</span>
+        <span class="path-text" v-html="pathText(p)"></span>
+      </div>
+    </div>
+
     <div v-if="loading" class="loading-overlay">
       <div class="loading-spinner"></div>
       <div class="loading-text">{{ loadingText }}</div>
@@ -418,6 +653,111 @@ defineExpose({ loadGraph, focusNode })
 }
 :deep(.graph-label:hover) {
   background: rgba(30, 30, 48, 0.95);
+}
+
+/* 图查询工具条 */
+.graph-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+.tool-btn {
+  padding: 5px 14px;
+  font-size: 12px;
+  color: var(--text-secondary, #aab4c4);
+  background: rgba(20, 24, 33, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.15s;
+}
+.tool-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.tool-btn.active {
+  color: #0d1117;
+  background: var(--accent, #4ecdc4);
+  border-color: var(--accent, #4ecdc4);
+  font-weight: 600;
+}
+
+/* 路径模式提示 */
+.path-hint {
+  position: absolute;
+  top: 52px;
+  left: 12px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--accent, #4ecdc4);
+  background: rgba(20, 24, 33, 0.9);
+  border: 1px solid rgba(78, 205, 196, 0.35);
+  border-radius: 6px;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+/* 路径结果面板 */
+.path-panel {
+  position: absolute;
+  top: 84px;
+  left: 12px;
+  width: 380px;
+  max-width: calc(100% - 24px);
+  max-height: 45%;
+  overflow-y: auto;
+  background: rgba(18, 22, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  z-index: 10;
+  backdrop-filter: blur(6px);
+}
+.path-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #e8edf4);
+  margin-bottom: 8px;
+}
+.path-close {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #889);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+}
+.path-close:hover {
+  color: #fff;
+}
+.path-line {
+  display: flex;
+  gap: 8px;
+  padding: 5px 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  border-radius: 4px;
+  color: var(--text-secondary, #aab4c4);
+}
+.path-line.best {
+  background: rgba(78, 205, 196, 0.08);
+  color: var(--text-primary, #e8edf4);
+}
+.path-len {
+  flex-shrink: 0;
+  color: var(--accent, #4ecdc4);
+  font-weight: 600;
+}
+.path-text :deep(.seg) {
+  color: #6b86b5;
+  padding: 0 2px;
 }
 .loading-overlay {
   position: absolute;

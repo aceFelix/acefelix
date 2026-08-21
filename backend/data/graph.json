@@ -5,13 +5,12 @@
       "name": "aceFelix",
       "type": "Person",
       "properties": {
-        "role": "developer",
-        "test": true
+        "role": "developer"
       },
       "color": null,
       "size": null,
       "created_at": "2026-08-17T17:44:47.512010",
-      "updated_at": "2026-08-21T19:17:23.983576"
+      "updated_at": "2026-08-21T19:41:27.274704"
     },
     {
       "id": "584281f5-2792-49ff-aa85-82ee24ae0ce9",
@@ -715,5 +714,5 @@
     "LEADS_TO": "通向",
     "SIMILAR_TO": "相似"
   },
-  "version": 2
+  "version": 3
 }

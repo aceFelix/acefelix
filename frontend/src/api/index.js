@@ -56,6 +56,10 @@ export const api = {
   // 图谱查询
   getGraph: () => request('/graph'),
   getNeighbors: (id, degree = 1) => request(`/graph/neighbors/${id}?degree=${degree}`),
+  getPaths: (source, target, maxHops = 3, maxPaths = 10) =>
+    request(`/graph/paths?source=${source}&target=${target}&max_hops=${maxHops}&max_paths=${maxPaths}`),
+  getCommonNeighbors: (entity, other) =>
+    request(`/graph/common?entity=${entity}&other=${other}`),
   search: (q) => request(`/search?q=${encodeURIComponent(q)}`),
   getStats: () => request('/stats'),
 }

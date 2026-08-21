@@ -355,6 +355,26 @@ def get_neighbors(entity_id: str, degree: int = 1) -> Dict[str, Any]:
     return kg.get_neighbors(entity_id, degree=degree)
 
 
+@app.get("/api/graph/paths")
+def find_paths(
+    source: str, target: str, max_hops: int = 3, max_paths: int = 10
+) -> Dict[str, Any]:
+    """查询两个实体之间的关联路径（无向视角，按跳数从短到长）"""
+    try:
+        return kg.find_paths(source, target, max_hops=max_hops, max_paths=max_paths)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/graph/common")
+def common_neighbors(entity: str, other: str) -> Dict[str, Any]:
+    """查询两个实体的共同邻居"""
+    try:
+        return kg.common_neighbors(entity, other)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/api/search")
 def search_entities(q: str) -> List[Dict[str, Any]]:
     """搜索实体"""
