@@ -14,6 +14,7 @@ import StatsBar from './components/StatsBar.vue'
 // 元数据
 const entityTypes = ref([])
 const relationTypes = ref([])
+const relationTypeLabels = ref({}) // 关系类型代码 -> 中文标签
 const entityColors = ref({})
 
 // 数据
@@ -39,6 +40,7 @@ async function loadMeta() {
   const meta = await api.getMeta()
   entityTypes.value = meta.entity_types
   relationTypes.value = meta.relation_types
+  relationTypeLabels.value = meta.relation_type_labels || {}
   entityColors.value = meta.entity_colors
 }
 
@@ -156,6 +158,7 @@ onMounted(() => init())
             v-show="activeTab === 'relation'"
             ref="relationPanelRef"
             :relation-types="relationTypes"
+            :relation-type-labels="relationTypeLabels"
             :entities="entities"
             @refresh="refreshAll"
           />

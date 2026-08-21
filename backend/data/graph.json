@@ -700,5 +700,19 @@
     "Education": "#00b894",
     "Goal": "#e17055",
     "Event": "#fdcb6e"
+  },
+  "relation_types": {
+    "HAS_SKILL": "掌握技能",
+    "KNOWS": "了解知识",
+    "INTERESTED_IN": "感兴趣",
+    "WORKS_ON": "参与项目",
+    "DOING": "正在做",
+    "USES": "使用工具",
+    "STUDIED_AT": "就读于",
+    "RELATED_TO": "相关",
+    "DEPENDS_ON": "依赖于",
+    "PART_OF": "属于",
+    "LEADS_TO": "通向",
+    "SIMILAR_TO": "相似"
   }
 }

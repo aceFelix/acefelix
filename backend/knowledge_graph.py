@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 
 import networkx as nx
 
-from models import ENTITY_COLORS, Entity, EntityType, Relation, RelationType
+from models import ENTITY_COLORS, RELATION_LABELS, Entity, EntityType, Relation, RelationType
 
 
 class KnowledgeGraph:
@@ -42,6 +42,8 @@ class KnowledgeGraph:
         # 实体类型表：name -> color（动态，持久化于 graph.json）
         # 默认用 models.ENTITY_COLORS 的 10 种内置类型
         self._types: Dict[str, str] = dict(ENTITY_COLORS)
+        # 关系类型表：name -> 中文标签（动态，持久化于 graph.json）
+        self._relation_types: Dict[str, str] = dict(RELATION_LABELS)
         self.load()
 
     # ------------------------------------------------------------------ #
@@ -62,6 +64,11 @@ class KnowledgeGraph:
         saved_types = data.get("types")
         if isinstance(saved_types, dict) and saved_types:
             self._types = dict(saved_types)
+
+        # 加载关系类型表（旧数据无 relation_types 字段时保留默认 12 种）
+        saved_rel_types = data.get("relation_types")
+        if isinstance(saved_rel_types, dict) and saved_rel_types:
+            self._relation_types = dict(saved_rel_types)
 
         # 加载实体
         for ent_data in data.get("entities", []):
@@ -100,6 +107,7 @@ class KnowledgeGraph:
             "entities": [e.to_dict() for e in self._entities.values()],
             "relations": [r.to_dict() for r in self._relations.values()],
             "types": self._types,
+            "relation_types": self._relation_types,
         }
         tmp_path = self.data_path.with_suffix(".json.tmp")
         try:
@@ -181,6 +189,73 @@ class KnowledgeGraph:
         """校验实体类型已注册"""
         if type not in self._types:
             raise ValueError(f"未注册的实体类型: {type}")
+
+    # ------------------------------------------------------------------ #
+    # 关系类型管理（动态，持久化于 graph.json 的 relation_types 字段）
+    # ------------------------------------------------------------------ #
+
+    def list_relation_types(self) -> Dict[str, str]:
+        """返回全部关系类型（name -> 中文标签）"""
+        return dict(self._relation_types)
+
+    def add_relation_type(self, name: str, label: str) -> None:
+        """新增关系类型"""
+        name = (name or "").strip()
+        if not name:
+            raise ValueError("类型代码不能为空")
+        if name in self._relation_types:
+            raise ValueError(f"类型已存在: {name}")
+        self._relation_types[name] = (label or "").strip() or name
+        self.save()
+
+    def update_relation_type(self, name: str, label: str) -> None:
+        """修改关系类型的中文标签"""
+        if name not in self._relation_types:
+            raise ValueError(f"类型不存在: {name}")
+        self._relation_types[name] = (label or "").strip() or name
+        self.save()
+
+    def rename_relation_type(self, old_name: str, new_name: str) -> None:
+        """
+        重命名关系类型，并级联更新所有使用该类型的关系
+        """
+        new_name = (new_name or "").strip()
+        if old_name not in self._relation_types:
+            raise ValueError(f"类型不存在: {old_name}")
+        if not new_name:
+            raise ValueError("新名称不能为空")
+        if new_name == old_name:
+            return
+        if new_name in self._relation_types:
+            raise ValueError(f"类型已存在: {new_name}")
+
+        self._relation_types[new_name] = self._relation_types.pop(old_name)
+        for relation in self._relations.values():
+            if relation.type == old_name:
+                relation.type = new_name
+                relation.updated_at = datetime.now().isoformat()
+        # 同步更新图边
+        for _, _, edge_data in self.graph.edges(data=True):
+            if edge_data.get("type") == old_name:
+                edge_data["type"] = new_name
+        self.save()
+
+    def delete_relation_type(self, name: str) -> None:
+        """
+        删除关系类型；若有关联正在使用则拒绝（fail-closed）
+        """
+        if name not in self._relation_types:
+            raise ValueError(f"类型不存在: {name}")
+        in_use = sum(1 for r in self._relations.values() if r.type == name)
+        if in_use:
+            raise ValueError(f"类型正在被 {in_use} 条关系使用，无法删除")
+        del self._relation_types[name]
+        self.save()
+
+    def _validate_relation_type(self, type: str) -> None:
+        """校验关系类型已注册"""
+        if type not in self._relation_types:
+            raise ValueError(f"未注册的关系类型: {type}")
 
     # ------------------------------------------------------------------ #
     # 实体 CRUD
@@ -330,6 +405,7 @@ class KnowledgeGraph:
         """
         if source not in self._entities or target not in self._entities:
             return None
+        self._validate_relation_type(type)
 
         relation_id = str(uuid.uuid4())
         relation = Relation(
@@ -392,6 +468,7 @@ class KnowledgeGraph:
         relation.source = new_source
         relation.target = new_target
         if type is not None:
+            self._validate_relation_type(type)
             relation.type = type
         if properties is not None:
             relation.properties = properties

@@ -6,15 +6,33 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
+import RelationTypeManager from './RelationTypeManager.vue'
 
 const props = defineProps({
   relationTypes: { type: Array, default: () => [] },
+  relationTypeLabels: { type: Object, default: () => ({}) },
   entities: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['refresh'])
 
 const relations = ref([])
 const filterType = ref('')
+const showTypeManager = ref(false)
+
+/**
+ * 关系类型显示文案：中文标签 + 代码（下拉框等需要明确的场景）
+ */
+function typeLabel(type) {
+  const label = props.relationTypeLabels[type]
+  return label && label !== type ? `${label} (${type})` : type
+}
+
+/**
+ * 关系类型短文案：仅中文标签（列表 tag 用，空间小）
+ */
+function typeShort(type) {
+  return props.relationTypeLabels[type] || type
+}
 
 // 新增/编辑表单
 const showForm = ref(false)
@@ -123,13 +141,16 @@ defineExpose({ loadRelations })
   <div class="relation-panel">
     <div class="panel-header">
       <h3>关系管理</h3>
-      <button class="btn btn-primary" @click="openAdd">+ 新增</button>
+      <div class="header-actions">
+        <button class="icon-btn" title="类型管理" @click="showTypeManager = true">⚙</button>
+        <button class="btn btn-primary" @click="openAdd">+ 新增</button>
+      </div>
     </div>
 
     <div class="filters">
       <select class="select" v-model="filterType">
         <option value="">全部类型</option>
-        <option v-for="t in relationTypes" :key="t" :value="t">{{ t }}</option>
+        <option v-for="t in relationTypes" :key="t" :value="t">{{ typeLabel(t) }}</option>
       </select>
     </div>
 
@@ -142,7 +163,7 @@ defineExpose({ loadRelations })
         <div class="relation-info">
           <span class="entity-label">{{ entityMap[rel.source] || '?' }}</span>
           <span class="relation-arrow">
-            <span class="relation-type">{{ rel.type }}</span>
+            <span class="relation-type" :title="rel.type">{{ typeShort(rel.type) }}</span>
             →
           </span>
           <span class="entity-label">{{ entityMap[rel.target] || '?' }}</span>
@@ -174,7 +195,7 @@ defineExpose({ loadRelations })
         <div class="form-group">
           <label>关系类型</label>
           <select class="select" v-model="form.type">
-            <option v-for="t in relationTypes" :key="t" :value="t">{{ t }}</option>
+            <option v-for="t in relationTypes" :key="t" :value="t">{{ typeLabel(t) }}</option>
           </select>
         </div>
         <div class="form-group">
@@ -187,6 +208,13 @@ defineExpose({ loadRelations })
         </div>
       </div>
     </div>
+
+    <!-- 关系类型管理弹窗 -->
+    <RelationTypeManager
+      v-if="showTypeManager"
+      @close="showTypeManager = false"
+      @refresh="emit('refresh')"
+    />
   </div>
 </template>
 
@@ -206,6 +234,11 @@ defineExpose({ loadRelations })
 .panel-header h3 {
   font-size: 14px;
   font-weight: 600;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .filters {
   padding: 8px 16px;

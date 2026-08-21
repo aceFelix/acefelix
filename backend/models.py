@@ -60,6 +60,23 @@ ENTITY_COLORS: Dict[str, str] = {
 }
 
 
+# 关系类型 -> 中文标签（界面显示用）
+RELATION_LABELS: Dict[str, str] = {
+    RelationType.HAS_SKILL.value: "掌握技能",
+    RelationType.KNOWS.value: "了解知识",
+    RelationType.INTERESTED_IN.value: "感兴趣",
+    RelationType.WORKS_ON.value: "参与项目",
+    RelationType.DOING.value: "正在做",
+    RelationType.USES.value: "使用工具",
+    RelationType.STUDIED_AT.value: "就读于",
+    RelationType.RELATED_TO.value: "相关",
+    RelationType.DEPENDS_ON.value: "依赖于",
+    RelationType.PART_OF.value: "属于",
+    RelationType.LEADS_TO.value: "通向",
+    RelationType.SIMILAR_TO.value: "相似",
+}
+
+
 @dataclass
 class Entity:
     """

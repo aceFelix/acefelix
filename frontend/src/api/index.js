@@ -47,6 +47,12 @@ export const api = {
   updateType: (name, data) => request(`/types/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteType: (name) => request(`/types/${encodeURIComponent(name)}`, { method: 'DELETE' }),
 
+  // 关系类型管理
+  getRelationTypes: () => request('/relation-types'),
+  createRelationType: (data) => request('/relation-types', { method: 'POST', body: JSON.stringify(data) }),
+  updateRelationType: (name, data) => request(`/relation-types/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRelationType: (name) => request(`/relation-types/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+
   // 图谱查询
   getGraph: () => request('/graph'),
   getNeighbors: (id, degree = 1) => request(`/graph/neighbors/${id}?degree=${degree}`),

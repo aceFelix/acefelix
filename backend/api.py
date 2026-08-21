@@ -15,7 +15,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from knowledge_graph import KnowledgeGraph
-from models import RelationType
 
 # 初始化 FastAPI 应用
 app = FastAPI(
@@ -86,12 +85,14 @@ class RelationUpdate(BaseModel):
 def get_meta() -> Dict[str, Any]:
     """
     获取元数据：实体类型、关系类型、颜色映射
-    供前端渲染使用（实体类型为动态类型表）
+    供前端渲染使用（实体类型与关系类型均为动态类型表）
     """
     types = kg.list_types()
+    rel_types = kg.list_relation_types()
     return {
         "entity_types": list(types.keys()),
-        "relation_types": [r.value for r in RelationType],
+        "relation_types": list(rel_types.keys()),
+        "relation_type_labels": rel_types,
         "entity_colors": types,
     }
 
@@ -149,6 +150,64 @@ def delete_type(name: str) -> Dict[str, str]:
     """删除实体类型（有实体使用时拒绝）"""
     try:
         kg.delete_type(name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"deleted": name}
+
+
+# ------------------------------------------------------------------ #
+# 关系类型管理接口
+# ------------------------------------------------------------------ #
+
+class RelationTypeCreate(BaseModel):
+    """新增关系类型的请求体"""
+
+    name: str          # 类型代码（如 HAS_SKILL，建议大写下划线）
+    label: str = ""    # 中文标签（界面显示用）
+
+
+class RelationTypeUpdate(BaseModel):
+    """修改关系类型的请求体（改标签 / 改名）"""
+
+    label: Optional[str] = None
+    new_name: Optional[str] = None
+
+
+@app.get("/api/relation-types")
+def list_relation_types() -> Dict[str, str]:
+    """列出全部关系类型（name -> 中文标签）"""
+    return kg.list_relation_types()
+
+
+@app.post("/api/relation-types")
+def create_relation_type(body: RelationTypeCreate) -> Dict[str, str]:
+    """新增关系类型"""
+    try:
+        kg.add_relation_type(body.name, body.label)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"name": body.name.strip(), "label": (body.label or "").strip() or body.name.strip()}
+
+
+@app.put("/api/relation-types/{name}")
+def update_relation_type(name: str, body: RelationTypeUpdate) -> Dict[str, str]:
+    """修改关系类型：改中文标签和/或重命名（重命名会级联更新关系）"""
+    try:
+        if body.new_name is not None:
+            kg.rename_relation_type(name, body.new_name)
+            name = body.new_name.strip()
+        if body.label is not None:
+            kg.update_relation_type(name, body.label)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"name": name, "label": kg.list_relation_types()[name]}
+
+
+@app.delete("/api/relation-types/{name}")
+def delete_relation_type(name: str) -> Dict[str, str]:
+    """删除关系类型（有关系使用时拒绝）"""
+    try:
+        kg.delete_relation_type(name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"deleted": name}
@@ -224,12 +283,15 @@ def list_relations(type: Optional[str] = None) -> List[Dict[str, Any]]:
 @app.post("/api/relations")
 def create_relation(body: RelationCreate) -> Dict[str, Any]:
     """创建关系"""
-    relation = kg.add_relation(
-        source=body.source,
-        target=body.target,
-        type=body.type,
-        properties=body.properties,
-    )
+    try:
+        relation = kg.add_relation(
+            source=body.source,
+            target=body.target,
+            type=body.type,
+            properties=body.properties,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not relation:
         raise HTTPException(status_code=400, detail="源实体或目标实体不存在")
     return relation.to_dict()
