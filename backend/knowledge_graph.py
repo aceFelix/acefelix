@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -44,7 +47,16 @@ class KnowledgeGraph:
         self._types: Dict[str, str] = dict(ENTITY_COLORS)
         # 关系类型表：name -> 中文标签（动态，持久化于 graph.json）
         self._relation_types: Dict[str, str] = dict(RELATION_LABELS)
+        # 数据版本号（乐观锁）：每次保存 +1，客户端编辑时携带，不匹配即冲突
+        self._version: int = 1
+        # 写锁：串行化并发写操作（FastAPI sync handler 在线程池中并发执行）
+        self._write_lock = threading.Lock()
         self.load()
+
+    @property
+    def version(self) -> int:
+        """当前数据版本号（乐观锁用）"""
+        return self._version
 
     # ------------------------------------------------------------------ #
     # 持久化
@@ -69,6 +81,9 @@ class KnowledgeGraph:
         saved_rel_types = data.get("relation_types")
         if isinstance(saved_rel_types, dict) and saved_rel_types:
             self._relation_types = dict(saved_rel_types)
+
+        # 加载数据版本号（旧数据无 version 时从 1 开始）
+        self._version = int(data.get("version", 1))
 
         # 加载实体
         for ent_data in data.get("entities", []):
@@ -99,31 +114,62 @@ class KnowledgeGraph:
     def save(self) -> None:
         """
         将图谱数据持久化到 JSON 文件
-        优先"写临时文件 + 原子替换"（写入中断不损坏既有数据）；
-        若运行环境的安全组件拦截 rename 类操作，降级为直接写入
+        - 写锁串行化并发保存；版本号 +1（乐观锁）
+        - 保存前自动备份到 data/backups/，滚动保留最近 20 份（同秒覆盖）
+        - 优先"写临时文件 + 原子替换"（写入中断不损坏既有数据）；
+          若运行环境的安全组件拦截 rename 类操作，降级为直接写入
         """
-        self.data_path.parent.mkdir(parents=True, exist_ok=True)
-        data = {
-            "entities": [e.to_dict() for e in self._entities.values()],
-            "relations": [r.to_dict() for r in self._relations.values()],
-            "types": self._types,
-            "relation_types": self._relation_types,
-        }
-        tmp_path = self.data_path.with_suffix(".json.tmp")
-        try:
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp_path, self.data_path)
-        except PermissionError:
-            # 环境拦截 rename：降级直接写入
-            with open(self.data_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+        with self._write_lock:
+            self._backup()
+            self._version += 1
+            self.data_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {
+                "entities": [e.to_dict() for e in self._entities.values()],
+                "relations": [r.to_dict() for r in self._relations.values()],
+                "types": self._types,
+                "relation_types": self._relation_types,
+                "version": self._version,
+            }
+            tmp_path = self.data_path.with_suffix(".json.tmp")
             try:
-                tmp_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp_path, self.data_path)
+            except PermissionError:
+                # 环境拦截 rename：降级直接写入
+                with open(self.data_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+    def _backup(self, keep: int = 20) -> None:
+        """
+        保存前备份当前数据文件；备份失败不阻塞主流程
+        @param keep: 滚动保留的备份份数
+        """
+        try:
+            if not self.data_path.exists():
+                return
+            backup_dir = self.data_path.parent / "backups"
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            shutil.copy2(self.data_path, backup_dir / f"graph_{stamp}.json")
+            # 滚动清理：按文件名排序（含时间戳），删除最旧的
+            backups = sorted(
+                p for p in backup_dir.glob("graph_*.json")
+                if re.fullmatch(r"graph_\d{8}_\d{6}\.json", p.name)
+            )
+            for old in backups[:-keep]:
+                try:
+                    old.unlink()
+                except OSError:
+                    pass  # 环境拦截删除时跳过，不阻塞
+        except OSError:
+            pass  # 备份是尽力而为，失败不影响保存
 
     # ------------------------------------------------------------------ #
     # 实体类型管理（动态，持久化于 graph.json 的 types 字段）

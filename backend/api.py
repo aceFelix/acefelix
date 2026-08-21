@@ -57,6 +57,7 @@ class EntityUpdate(BaseModel):
     type: Optional[str] = None
     properties: Optional[Dict[str, Any]] = None
     color: Optional[str] = None  # 传入空串清除自定义颜色，回退类型默认色
+    if_version: Optional[int] = None  # 乐观锁：表单打开时的数据版本，不匹配返回 409
 
 
 class RelationCreate(BaseModel):
@@ -75,6 +76,7 @@ class RelationUpdate(BaseModel):
     target: Optional[str] = None  # 新目标实体 ID（可选）
     type: Optional[str] = None
     properties: Optional[Dict[str, Any]] = None
+    if_version: Optional[int] = None  # 乐观锁：表单打开时的数据版本，不匹配返回 409
 
 
 # ------------------------------------------------------------------ #
@@ -94,6 +96,7 @@ def get_meta() -> Dict[str, Any]:
         "relation_types": list(rel_types.keys()),
         "relation_type_labels": rel_types,
         "entity_colors": types,
+        "version": kg.version,
     }
 
 
@@ -247,7 +250,12 @@ def create_entity(body: EntityCreate) -> Dict[str, Any]:
 
 @app.put("/api/entities/{entity_id}")
 def update_entity(entity_id: str, body: EntityUpdate) -> Dict[str, Any]:
-    """更新实体"""
+    """更新实体（可携带 if_version 做并发冲突检测）"""
+    if body.if_version is not None and body.if_version != kg.version:
+        raise HTTPException(
+            status_code=409,
+            detail="数据已被其他页面或程序修改，请刷新后重试",
+        )
     entity = kg.update_entity(
         entity_id=entity_id,
         name=body.name,
@@ -299,7 +307,12 @@ def create_relation(body: RelationCreate) -> Dict[str, Any]:
 
 @app.put("/api/relations/{relation_id}")
 def update_relation(relation_id: str, body: RelationUpdate) -> Dict[str, Any]:
-    """更新关系（可修改源/目标实体、类型、属性）"""
+    """更新关系（可修改源/目标实体、类型、属性；可携带 if_version 做并发冲突检测）"""
+    if body.if_version is not None and body.if_version != kg.version:
+        raise HTTPException(
+            status_code=409,
+            detail="数据已被其他页面或程序修改，请刷新后重试",
+        )
     try:
         relation = kg.update_relation(
             relation_id=relation_id,

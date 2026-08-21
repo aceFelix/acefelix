@@ -16,6 +16,7 @@ const entityTypes = ref([])
 const relationTypes = ref([])
 const relationTypeLabels = ref({}) // 关系类型代码 -> 中文标签
 const entityColors = ref({})
+const graphVersion = ref(1) // 数据版本号（乐观锁）
 
 // 数据
 const entities = ref([])
@@ -42,6 +43,7 @@ async function loadMeta() {
   relationTypes.value = meta.relation_types
   relationTypeLabels.value = meta.relation_type_labels || {}
   entityColors.value = meta.entity_colors
+  graphVersion.value = meta.version || 1
 }
 
 /**
@@ -151,6 +153,7 @@ onMounted(() => init())
             :entity-types="entityTypes"
             :entity-colors="entityColors"
             :selected-id="selectedEntityId"
+            :graph-version="graphVersion"
             @select="onSelectEntity"
             @refresh="refreshAll"
           />
@@ -160,6 +163,7 @@ onMounted(() => init())
             :relation-types="relationTypes"
             :relation-type-labels="relationTypeLabels"
             :entities="entities"
+            :graph-version="graphVersion"
             @refresh="refreshAll"
           />
         </div>

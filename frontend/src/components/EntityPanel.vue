@@ -12,6 +12,7 @@ const props = defineProps({
   entityTypes: { type: Array, default: () => [] },
   entityColors: { type: Object, default: () => ({}) },
   selectedId: { type: String, default: '' },
+  graphVersion: { type: Number, default: 1 },
 })
 const emit = defineEmits(['select', 'refresh'])
 
@@ -31,6 +32,8 @@ const showTypeManager = ref(false)
 const showForm = ref(false)
 const editingId = ref(null)
 const form = ref({ name: '', type: '', properties: '{}', color: '' })
+// 表单打开时的数据版本（乐观锁：提交时校验，防多页面并发覆盖）
+const formVersion = ref(null)
 
 /**
  * 计算实体显示颜色：自定义颜色 > 类型默认色
@@ -83,6 +86,7 @@ function openAdd() {
  */
 function openEdit(entity) {
   editingId.value = entity.id
+  formVersion.value = props.graphVersion
   form.value = {
     name: entity.name,
     type: entity.type,
@@ -109,7 +113,8 @@ async function submitForm() {
       data.color = ''
     }
     if (editingId.value) {
-      await api.updateEntity(editingId.value, data)
+      // 乐观锁：携带表单打开时的版本，后端不匹配返回 409
+      await api.updateEntity(editingId.value, { ...data, if_version: formVersion.value })
     } else {
       await api.createEntity(data)
     }

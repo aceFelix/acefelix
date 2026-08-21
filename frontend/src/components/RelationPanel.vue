@@ -12,6 +12,7 @@ const props = defineProps({
   relationTypes: { type: Array, default: () => [] },
   relationTypeLabels: { type: Object, default: () => ({}) },
   entities: { type: Array, default: () => [] },
+  graphVersion: { type: Number, default: 1 },
 })
 const emit = defineEmits(['refresh'])
 
@@ -38,6 +39,8 @@ function typeShort(type) {
 const showForm = ref(false)
 const editingId = ref(null)
 const form = ref({ source: '', target: '', type: '', properties: '{}' })
+// 表单打开时的数据版本（乐观锁：提交时校验，防多页面并发覆盖）
+const formVersion = ref(null)
 
 const entityMap = computed(() => {
   const map = {}
@@ -82,6 +85,7 @@ function openAdd() {
  */
 function openEdit(relation) {
   editingId.value = relation.id
+  formVersion.value = props.graphVersion
   form.value = {
     source: relation.source,
     target: relation.target,
@@ -107,7 +111,8 @@ async function submitForm() {
       properties,
     }
     if (editingId.value) {
-      await api.updateRelation(editingId.value, data)
+      // 乐观锁：携带表单打开时的版本，后端不匹配返回 409
+      await api.updateRelation(editingId.value, { ...data, if_version: formVersion.value })
     } else {
       await api.createRelation(data)
     }

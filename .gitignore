@@ -23,6 +23,9 @@ backend/data/graph.json.tmp
 build_log*.txt
 py_debug.txt
 
+# 数据备份（自动滚动 20 份，不入库）
+backend/data/backups/
+
 # IDE / 工具
 .vscode/
 .idea/
