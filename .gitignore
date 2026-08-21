@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node / 前端
+node_modules/
+dist/
+.npm-cache/
+.yarn-cache/
+.tmp/
+*.log
+.vite-err.log
+.vite-out.log
+
+# IDE / 工具
+.vscode/
+.idea/
+.DS_Store
+
+# WorkBuddy 工作目录
+.workbuddy/

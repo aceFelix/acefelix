@@ -1,0 +1,692 @@
+{
+  "entities": [
+    {
+      "id": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "name": "许发明 (aceFelix)",
+      "type": "Person",
+      "properties": {
+        "role": "全栈开发者",
+        "github": "acefelix"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.512010",
+      "updated_at": "2026-08-17T17:44:47.512041"
+    },
+    {
+      "id": "584281f5-2792-49ff-aa85-82ee24ae0ce9",
+      "name": "Python",
+      "type": "Skill",
+      "properties": {
+        "proficiency": "高级",
+        "years": 5
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.512975",
+      "updated_at": "2026-08-17T17:44:47.512980"
+    },
+    {
+      "id": "2673b434-f8c6-44eb-9b02-73d1fb184e79",
+      "name": "Java",
+      "type": "Skill",
+      "properties": {
+        "proficiency": "中级",
+        "years": 3
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.513909",
+      "updated_at": "2026-08-17T17:44:47.513913"
+    },
+    {
+      "id": "066d9025-4a3a-48bf-aaa8-e47661fbf194",
+      "name": "Vue 3",
+      "type": "Skill",
+      "properties": {
+        "proficiency": "中级",
+        "years": 2
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.514821",
+      "updated_at": "2026-08-17T17:44:47.514824"
+    },
+    {
+      "id": "ead7f011-2fdc-4756-8d36-8be62dbb86be",
+      "name": "Spring Boot",
+      "type": "Skill",
+      "properties": {
+        "proficiency": "中级",
+        "years": 3
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.515684",
+      "updated_at": "2026-08-17T17:44:47.515688"
+    },
+    {
+      "id": "cf94164d-e84a-42b6-af37-0bafedc8f1ca",
+      "name": "Vite",
+      "type": "Skill",
+      "properties": {
+        "proficiency": "中级",
+        "years": 2
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.516653",
+      "updated_at": "2026-08-17T17:44:47.516658"
+    },
+    {
+      "id": "17554ce2-1b93-4df5-bb55-53fdefe05ce8",
+      "name": "Maven",
+      "type": "Skill",
+      "properties": {
+        "proficiency": "中级",
+        "years": 3
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.517616",
+      "updated_at": "2026-08-17T17:44:47.517620"
+    },
+    {
+      "id": "1a4cd273-2434-4d91-89c2-0acf9f5d9881",
+      "name": "AI Agent",
+      "type": "Knowledge",
+      "properties": {
+        "description": "智能体架构与开发"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.518785",
+      "updated_at": "2026-08-17T17:44:47.518789"
+    },
+    {
+      "id": "a3060855-24bf-41de-a754-6d41b8bc855b",
+      "name": "知识图谱",
+      "type": "Knowledge",
+      "properties": {
+        "description": "图结构知识表示"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.519728",
+      "updated_at": "2026-08-17T17:44:47.519732"
+    },
+    {
+      "id": "d1a9de90-1a06-4630-8d1a-085f61a4f5f0",
+      "name": "GraphRAG",
+      "type": "Knowledge",
+      "properties": {
+        "description": "图增强检索生成"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.520669",
+      "updated_at": "2026-08-17T17:44:47.520673"
+    },
+    {
+      "id": "aafbf7c3-adf6-469b-aab2-dd5ef526282a",
+      "name": "RAG",
+      "type": "Knowledge",
+      "properties": {
+        "description": "检索增强生成"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.521630",
+      "updated_at": "2026-08-17T17:44:47.521634"
+    },
+    {
+      "id": "109c3268-e03c-4006-9f67-8acae8ddd9c0",
+      "name": "大语言模型",
+      "type": "Knowledge",
+      "properties": {
+        "description": "LLM 原理与应用"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.522631",
+      "updated_at": "2026-08-17T17:44:47.522635"
+    },
+    {
+      "id": "3d3db01a-01d8-4c49-95e6-7429ea26f3b7",
+      "name": "J.A.R.V.I.S",
+      "type": "Project",
+      "properties": {
+        "description": "个人 AI 助手，支持语音交互、工具调用、多模型切换",
+        "status": "开发中",
+        "tech_stack": "Python, Vue, FastAPI"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.523598",
+      "updated_at": "2026-08-17T17:44:47.523602"
+    },
+    {
+      "id": "de76f531-90d3-420e-a63d-18db106f30e5",
+      "name": "bitinn",
+      "type": "Project",
+      "properties": {
+        "description": "业务系统",
+        "status": "开发中",
+        "tech_stack": "Spring Boot, Vue"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.524599",
+      "updated_at": "2026-08-17T17:44:47.524603"
+    },
+    {
+      "id": "aba59026-58ce-400d-b252-c6e821ae4e32",
+      "name": "VS Code",
+      "type": "Tool",
+      "properties": {
+        "type": "编辑器"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.525613",
+      "updated_at": "2026-08-17T17:44:47.525617"
+    },
+    {
+      "id": "7a7ffcf0-036e-410b-b0f6-9638ef8ddf3c",
+      "name": "Git",
+      "type": "Tool",
+      "properties": {
+        "type": "版本控制"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.526615",
+      "updated_at": "2026-08-17T17:44:47.526619"
+    },
+    {
+      "id": "507a3d66-600c-4015-b72e-ed5767b03197",
+      "name": "Docker",
+      "type": "Tool",
+      "properties": {
+        "type": "容器"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.527660",
+      "updated_at": "2026-08-17T17:44:47.527664"
+    },
+    {
+      "id": "8669a047-4d78-4137-adc4-bac47d8bdde5",
+      "name": "MongoDB",
+      "type": "Tool",
+      "properties": {
+        "type": "数据库"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.528685",
+      "updated_at": "2026-08-17T17:44:47.528688"
+    },
+    {
+      "id": "b2f8394b-c524-4fb6-b495-6cc133fa51e7",
+      "name": "MySQL",
+      "type": "Tool",
+      "properties": {
+        "type": "数据库"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.529724",
+      "updated_at": "2026-08-17T17:44:47.529727"
+    },
+    {
+      "id": "7bc4cb87-224f-4640-95de-143d6cc6dc5f",
+      "name": "开源项目",
+      "type": "Interest",
+      "properties": {},
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.530776",
+      "updated_at": "2026-08-17T17:44:47.530781"
+    },
+    {
+      "id": "46a66539-ce5a-4bbd-b4c4-b0b14874df34",
+      "name": "AI 探索",
+      "type": "Interest",
+      "properties": {},
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.531843",
+      "updated_at": "2026-08-17T17:44:47.531847"
+    },
+    {
+      "id": "fcce3504-1317-4df0-9bb8-a7c1881cb193",
+      "name": "游戏",
+      "type": "Interest",
+      "properties": {},
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.532913",
+      "updated_at": "2026-08-17T17:44:47.532917"
+    },
+    {
+      "id": "c14d36df-0e35-496e-90f6-5e1b14c65955",
+      "name": "M2 阶段开发",
+      "type": "Task",
+      "properties": {
+        "status": "进行中"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.534006",
+      "updated_at": "2026-08-17T17:44:47.534010"
+    },
+    {
+      "id": "af1ec016-be07-4060-90c5-6cfa00918008",
+      "name": "个人知识图谱搭建",
+      "type": "Task",
+      "properties": {
+        "status": "进行中"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.535112",
+      "updated_at": "2026-08-17T17:44:47.535116"
+    },
+    {
+      "id": "f187eb9c-241a-4991-b6f2-15113245f3e5",
+      "name": "打造个性化 AI 助手",
+      "type": "Goal",
+      "properties": {
+        "timeline": "2026"
+      },
+      "color": null,
+      "size": null,
+      "created_at": "2026-08-17T17:44:47.536246",
+      "updated_at": "2026-08-17T17:44:47.536250"
+    },
+    {
+      "id": "24e4b158-8c1d-4a9a-a364-b68f96f1989d",
+      "name": "LHZ个人智能助手",
+      "type": "Project",
+      "properties": {
+        "description": "刘海柱Agent"
+      },
+      "color": "#54a0ff",
+      "size": null,
+      "created_at": "2026-08-17T23:24:00.180644",
+      "updated_at": "2026-08-17T23:24:00.180679"
+    }
+  ],
+  "relations": [
+    {
+      "id": "76c4b9e5-f878-48e3-9a2d-6c5fa4ee01cb",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "584281f5-2792-49ff-aa85-82ee24ae0ce9",
+      "type": "HAS_SKILL",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.537405",
+      "updated_at": "2026-08-17T17:44:47.537411"
+    },
+    {
+      "id": "6af43a35-6dab-408d-8162-a77aeff49e15",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "2673b434-f8c6-44eb-9b02-73d1fb184e79",
+      "type": "HAS_SKILL",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.538614",
+      "updated_at": "2026-08-17T17:44:47.538618"
+    },
+    {
+      "id": "d9d7386e-e38c-4dd8-a009-a0d4c8086644",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "066d9025-4a3a-48bf-aaa8-e47661fbf194",
+      "type": "HAS_SKILL",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.539799",
+      "updated_at": "2026-08-17T17:44:47.539803"
+    },
+    {
+      "id": "5b9bdfc9-6dee-439f-aa74-12cfd67823ba",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "ead7f011-2fdc-4756-8d36-8be62dbb86be",
+      "type": "HAS_SKILL",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.540991",
+      "updated_at": "2026-08-17T17:44:47.540995"
+    },
+    {
+      "id": "931cd73b-30ce-43aa-b0a2-e2c9cf4b278b",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "cf94164d-e84a-42b6-af37-0bafedc8f1ca",
+      "type": "HAS_SKILL",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.542189",
+      "updated_at": "2026-08-17T17:44:47.542193"
+    },
+    {
+      "id": "c3b527c1-72a3-449c-b8f1-870e2bbf905a",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "17554ce2-1b93-4df5-bb55-53fdefe05ce8",
+      "type": "HAS_SKILL",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.543403",
+      "updated_at": "2026-08-17T17:44:47.543407"
+    },
+    {
+      "id": "e539f5b7-cd9f-4d6e-9104-2e22a873a6f7",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "1a4cd273-2434-4d91-89c2-0acf9f5d9881",
+      "type": "KNOWS",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.544616",
+      "updated_at": "2026-08-17T17:44:47.544620"
+    },
+    {
+      "id": "ac132096-7901-493f-9865-cb76f81b471c",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "a3060855-24bf-41de-a754-6d41b8bc855b",
+      "type": "KNOWS",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.545852",
+      "updated_at": "2026-08-17T17:44:47.545856"
+    },
+    {
+      "id": "4b795662-337b-4490-b80f-5831764d83f4",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "d1a9de90-1a06-4630-8d1a-085f61a4f5f0",
+      "type": "KNOWS",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.547118",
+      "updated_at": "2026-08-17T17:44:47.547122"
+    },
+    {
+      "id": "6ecb97db-3998-4fe6-a851-c5a1f1e72293",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "aafbf7c3-adf6-469b-aab2-dd5ef526282a",
+      "type": "KNOWS",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.548371",
+      "updated_at": "2026-08-17T17:44:47.548375"
+    },
+    {
+      "id": "ed655ae5-da1c-4d58-b233-6fa7ed68449d",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "109c3268-e03c-4006-9f67-8acae8ddd9c0",
+      "type": "KNOWS",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.549623",
+      "updated_at": "2026-08-17T17:44:47.549627"
+    },
+    {
+      "id": "a572a6cf-f4ec-4388-9ae3-75af36b17784",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "3d3db01a-01d8-4c49-95e6-7429ea26f3b7",
+      "type": "WORKS_ON",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.550937",
+      "updated_at": "2026-08-17T17:44:47.550941"
+    },
+    {
+      "id": "294e6633-eebc-4117-bca7-720f1cc2ec39",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "de76f531-90d3-420e-a63d-18db106f30e5",
+      "type": "WORKS_ON",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.552264",
+      "updated_at": "2026-08-17T17:44:47.552270"
+    },
+    {
+      "id": "cade9189-37ea-4a14-bfa9-fa9e571ccdbc",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "aba59026-58ce-400d-b252-c6e821ae4e32",
+      "type": "USES",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.553631",
+      "updated_at": "2026-08-17T17:44:47.553637"
+    },
+    {
+      "id": "ea98b183-a8f4-4c99-899c-578da9e7fed7",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "7a7ffcf0-036e-410b-b0f6-9638ef8ddf3c",
+      "type": "USES",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.555006",
+      "updated_at": "2026-08-17T17:44:47.555012"
+    },
+    {
+      "id": "39382385-f67d-4ef5-9c1d-d7112dd95925",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "507a3d66-600c-4015-b72e-ed5767b03197",
+      "type": "USES",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.556351",
+      "updated_at": "2026-08-17T17:44:47.556355"
+    },
+    {
+      "id": "f9cd4d11-62bf-4edd-8733-336e08cc0809",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "8669a047-4d78-4137-adc4-bac47d8bdde5",
+      "type": "USES",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.557670",
+      "updated_at": "2026-08-17T17:44:47.557674"
+    },
+    {
+      "id": "d53afdbc-0e91-44af-bb58-6345e451f114",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "b2f8394b-c524-4fb6-b495-6cc133fa51e7",
+      "type": "USES",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.559017",
+      "updated_at": "2026-08-17T17:44:47.559021"
+    },
+    {
+      "id": "3e942de6-59bb-4ebe-b03e-1d377de43302",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "7bc4cb87-224f-4640-95de-143d6cc6dc5f",
+      "type": "INTERESTED_IN",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.560359",
+      "updated_at": "2026-08-17T17:44:47.560363"
+    },
+    {
+      "id": "17a667ed-ab08-460f-b9b9-937bde35ba7d",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "46a66539-ce5a-4bbd-b4c4-b0b14874df34",
+      "type": "INTERESTED_IN",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.561698",
+      "updated_at": "2026-08-17T17:44:47.561702"
+    },
+    {
+      "id": "9b558222-f2fc-4e3c-9543-879d5cc0407a",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "fcce3504-1317-4df0-9bb8-a7c1881cb193",
+      "type": "INTERESTED_IN",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.563044",
+      "updated_at": "2026-08-17T17:44:47.563048"
+    },
+    {
+      "id": "0897c004-79f1-4d08-92a5-aeb47da2b3bb",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "c14d36df-0e35-496e-90f6-5e1b14c65955",
+      "type": "DOING",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.564423",
+      "updated_at": "2026-08-17T17:44:47.564427"
+    },
+    {
+      "id": "93c65437-3633-4642-93a3-7ebd71e4bd56",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "af1ec016-be07-4060-90c5-6cfa00918008",
+      "type": "DOING",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.565842",
+      "updated_at": "2026-08-17T17:44:47.565847"
+    },
+    {
+      "id": "9da4372d-45db-45c6-8f91-f4e7fcefb799",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "f187eb9c-241a-4991-b6f2-15113245f3e5",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.567244",
+      "updated_at": "2026-08-17T17:44:47.567248"
+    },
+    {
+      "id": "171c388a-5251-4d80-98d0-b4a805e69fe7",
+      "source": "3d3db01a-01d8-4c49-95e6-7429ea26f3b7",
+      "target": "584281f5-2792-49ff-aa85-82ee24ae0ce9",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.568636",
+      "updated_at": "2026-08-17T17:44:47.568640"
+    },
+    {
+      "id": "ecffb410-06da-4cf9-bd1e-3eb0deb86a82",
+      "source": "3d3db01a-01d8-4c49-95e6-7429ea26f3b7",
+      "target": "066d9025-4a3a-48bf-aaa8-e47661fbf194",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.570131",
+      "updated_at": "2026-08-17T17:44:47.570135"
+    },
+    {
+      "id": "b6169a49-bf08-42ee-a9d3-86e896e19207",
+      "source": "de76f531-90d3-420e-a63d-18db106f30e5",
+      "target": "ead7f011-2fdc-4756-8d36-8be62dbb86be",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.571597",
+      "updated_at": "2026-08-17T17:44:47.571601"
+    },
+    {
+      "id": "7140d3aa-2247-4212-b037-d6cb4e82473a",
+      "source": "de76f531-90d3-420e-a63d-18db106f30e5",
+      "target": "066d9025-4a3a-48bf-aaa8-e47661fbf194",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.573247",
+      "updated_at": "2026-08-17T17:44:47.573252"
+    },
+    {
+      "id": "00c4e6ac-91ce-459a-8f8d-4691b7fcee46",
+      "source": "3d3db01a-01d8-4c49-95e6-7429ea26f3b7",
+      "target": "1a4cd273-2434-4d91-89c2-0acf9f5d9881",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.574703",
+      "updated_at": "2026-08-17T17:44:47.574706"
+    },
+    {
+      "id": "b86f8e09-5554-4e4c-940c-5474389c1ea2",
+      "source": "3d3db01a-01d8-4c49-95e6-7429ea26f3b7",
+      "target": "109c3268-e03c-4006-9f67-8acae8ddd9c0",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.576162",
+      "updated_at": "2026-08-17T17:44:47.576166"
+    },
+    {
+      "id": "efee07d6-9866-4122-a390-17bbf0095ad1",
+      "source": "af1ec016-be07-4060-90c5-6cfa00918008",
+      "target": "a3060855-24bf-41de-a754-6d41b8bc855b",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.577636",
+      "updated_at": "2026-08-17T17:44:47.577640"
+    },
+    {
+      "id": "958ec51e-312e-486e-a1a3-0b96d2ca292b",
+      "source": "af1ec016-be07-4060-90c5-6cfa00918008",
+      "target": "d1a9de90-1a06-4630-8d1a-085f61a4f5f0",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.579111",
+      "updated_at": "2026-08-17T17:44:47.579115"
+    },
+    {
+      "id": "e4053702-1020-4b40-ae9e-49da6dbcac34",
+      "source": "d1a9de90-1a06-4630-8d1a-085f61a4f5f0",
+      "target": "aafbf7c3-adf6-469b-aab2-dd5ef526282a",
+      "type": "DEPENDS_ON",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.580615",
+      "updated_at": "2026-08-17T17:44:47.580619"
+    },
+    {
+      "id": "5dca273e-684e-4c8b-942d-c80eb2e4c66d",
+      "source": "d1a9de90-1a06-4630-8d1a-085f61a4f5f0",
+      "target": "a3060855-24bf-41de-a754-6d41b8bc855b",
+      "type": "DEPENDS_ON",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.582168",
+      "updated_at": "2026-08-17T17:44:47.582172"
+    },
+    {
+      "id": "4fbb398f-1d89-4dd6-8b72-03622714ac81",
+      "source": "aafbf7c3-adf6-469b-aab2-dd5ef526282a",
+      "target": "109c3268-e03c-4006-9f67-8acae8ddd9c0",
+      "type": "DEPENDS_ON",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.583688",
+      "updated_at": "2026-08-17T17:44:47.583692"
+    },
+    {
+      "id": "7377b543-7b1b-4254-a3e2-2d81c7ed9923",
+      "source": "1a4cd273-2434-4d91-89c2-0acf9f5d9881",
+      "target": "109c3268-e03c-4006-9f67-8acae8ddd9c0",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.585195",
+      "updated_at": "2026-08-17T17:44:47.585199"
+    },
+    {
+      "id": "4d30bbba-89fc-4a48-a5d6-f9502dcfb120",
+      "source": "af1ec016-be07-4060-90c5-6cfa00918008",
+      "target": "f187eb9c-241a-4991-b6f2-15113245f3e5",
+      "type": "LEADS_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.586721",
+      "updated_at": "2026-08-17T17:44:47.586725"
+    },
+    {
+      "id": "d09ac1a5-5676-49a4-a79c-63ca261eceb9",
+      "source": "3d3db01a-01d8-4c49-95e6-7429ea26f3b7",
+      "target": "f187eb9c-241a-4991-b6f2-15113245f3e5",
+      "type": "LEADS_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.588249",
+      "updated_at": "2026-08-17T17:44:47.588253"
+    },
+    {
+      "id": "1b43e8f0-0471-40e7-a2e1-f9a0ad0ee4a5",
+      "source": "066d9025-4a3a-48bf-aaa8-e47661fbf194",
+      "target": "cf94164d-e84a-42b6-af37-0bafedc8f1ca",
+      "type": "SIMILAR_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.589794",
+      "updated_at": "2026-08-17T17:44:47.589798"
+    },
+    {
+      "id": "5804c31f-5477-4e94-95a7-f5e2af10c4af",
+      "source": "2673b434-f8c6-44eb-9b02-73d1fb184e79",
+      "target": "ead7f011-2fdc-4756-8d36-8be62dbb86be",
+      "type": "RELATED_TO",
+      "properties": {},
+      "created_at": "2026-08-17T17:44:47.591351",
+      "updated_at": "2026-08-17T17:44:47.591354"
+    },
+    {
+      "id": "91e69495-a0c2-406f-8651-a44373d118af",
+      "source": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
+      "target": "24e4b158-8c1d-4a9a-a364-b68f96f1989d",
+      "type": "WORKS_ON",
+      "properties": {},
+      "created_at": "2026-08-17T23:27:00.099113",
+      "updated_at": "2026-08-17T23:28:51.687710"
+    }
+  ]
+}
