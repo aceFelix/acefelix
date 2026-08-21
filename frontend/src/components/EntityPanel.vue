@@ -30,7 +30,7 @@ const showTypeManager = ref(false)
 // 新增/编辑表单
 const showForm = ref(false)
 const editingId = ref(null)
-const form = ref({ name: '', type: '', properties: '{}', color: '', size: 0 })
+const form = ref({ name: '', type: '', properties: '{}', color: '' })
 
 /**
  * 计算实体显示颜色：自定义颜色 > 类型默认色
@@ -74,7 +74,6 @@ function openAdd() {
     type: props.entityTypes[0] || '',
     properties: '{}',
     color: '', // 空 = 使用类型默认色
-    size: 0, // 0 = 自动（按连接数计算）
   }
   showForm.value = true
 }
@@ -89,7 +88,6 @@ function openEdit(entity) {
     type: entity.type,
     properties: JSON.stringify(entity.properties || {}, null, 2),
     color: entity.color || '',
-    size: entity.size || 0,
   }
   showForm.value = true
 }
@@ -109,12 +107,6 @@ async function submitForm() {
     } else if (editingId.value) {
       // 编辑时未选颜色 = 清除自定义色，回退类型默认色
       data.color = ''
-    }
-    if (form.value.size > 0) {
-      data.size = Number(form.value.size)
-    } else if (editingId.value) {
-      // 编辑时 size 为 0 = 清除自定义大小，回退自动计算
-      data.size = 0
     }
     if (editingId.value) {
       await api.updateEntity(editingId.value, data)
@@ -228,22 +220,6 @@ defineExpose({ loadEntities })
           <div class="color-custom">
             <input type="color" v-model="form.color" />
             <span>自定义颜色</span>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>大小（0 = 自动，按连接数计算）</label>
-          <div class="size-picker">
-            <input
-              type="range"
-              min="0"
-              max="10"
-              step="1"
-              v-model.number="form.size"
-              :style="{ '--slider-fill': form.size > 0 ? '#4ecdc4' : 'var(--border)' }"
-            />
-            <span class="size-value" :class="{ auto: form.size === 0 }">
-              {{ form.size === 0 ? '自动' : form.size }}
-            </span>
           </div>
         </div>
         <div class="form-actions">
@@ -463,60 +439,4 @@ defineExpose({ loadEntities })
   cursor: pointer;
 }
 
-/* 大小滑块 */
-.size-picker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.size-picker input[type='range'] {
-  flex: 1;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(
-    to right,
-    var(--slider-fill, var(--accent)) 0%,
-    var(--slider-fill, var(--accent)) var(--slider-progress, 0%),
-    rgba(255, 255, 255, 0.12) var(--slider-progress, 0%),
-    rgba(255, 255, 255, 0.12) 100%
-  );
-  outline: none;
-  cursor: pointer;
-}
-.size-picker input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-  cursor: pointer;
-}
-.size-picker input[type='range']::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-  cursor: pointer;
-}
-.size-value {
-  min-width: 44px;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  background: rgba(78, 205, 196, 0.12);
-  border-radius: 4px;
-  padding: 2px 8px;
-}
-.size-value.auto {
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.06);
-}
 </style>

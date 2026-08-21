@@ -192,16 +192,14 @@ class KnowledgeGraph:
         type: str,
         properties: Optional[Dict[str, Any]] = None,
         color: Optional[str] = None,
-        size: Optional[float] = None,
     ) -> Entity:
         """
         添加实体
 
         @param name: 实体名称
-        @param type: 实体类型（EntityType 枚举值）
+        @param type: 实体类型
         @param properties: 实体属性字典
         @param color: 自定义颜色（可选，None 时使用类型默认色）
-        @param size: 自定义大小（可选，None 时按连接数自动计算）
         @return 创建的 Entity 对象
         """
         self._validate_type(type)
@@ -212,7 +210,6 @@ class KnowledgeGraph:
             type=type,
             properties=properties or {},
             color=color,
-            size=size,
         )
         self._entities[entity_id] = entity
         self.graph.add_node(
@@ -221,7 +218,6 @@ class KnowledgeGraph:
             type=type,
             properties=entity.properties,
             color=color,
-            size=size,
         )
         self.save()
         return entity
@@ -249,7 +245,6 @@ class KnowledgeGraph:
         type: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
         color: Optional[str] = None,
-        size: Optional[float] = None,
     ) -> Optional[Entity]:
         """
         更新实体
@@ -259,7 +254,6 @@ class KnowledgeGraph:
         @param type: 新类型（可选）
         @param properties: 新属性（可选，整体替换）
         @param color: 新颜色（可选，传入 None 不清除，传入空串清除）
-        @param size: 新大小（可选，传入 None 不清除，传入 0 清除）
         @return 更新后的 Entity，不存在则返回 None
         """
         entity = self._entities.get(entity_id)
@@ -276,9 +270,6 @@ class KnowledgeGraph:
         if color is not None:
             # 空字符串视为清除自定义颜色，回退到类型默认色
             entity.color = color or None
-        if size is not None:
-            # 0 或空视为清除自定义大小，回退自动计算
-            entity.size = size if size > 0 else None
         entity.updated_at = datetime.now().isoformat()
 
         # 同步更新图节点
@@ -287,7 +278,6 @@ class KnowledgeGraph:
             self.graph.nodes[entity_id]["type"] = entity.type
             self.graph.nodes[entity_id]["properties"] = entity.properties
             self.graph.nodes[entity_id]["color"] = entity.color
-            self.graph.nodes[entity_id]["size"] = entity.size
 
         self.save()
         return entity

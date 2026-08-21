@@ -40,13 +40,11 @@ const projVec = new THREE.Vector3() // 投影复用向量，避免每帧创建�
  */
 /**
  * 计算节点视觉半径（球体 + 碰撞检测共用）
- * 优先用自定义 size，否则按连接度数自动计算，均受 maxRadius 上限约束
+ * 仅按连接度数自动计算，受 maxRadius 上限约束
  */
 function nodeRadius(node) {
-  const { baseRadius, radiusPerDegree, maxRadius, sizeScale } = graphConfig.node
-  const custom = (node.size || 0) * sizeScale
-  const auto = baseRadius + (node.degree || 0) * radiusPerDegree
-  return Math.min(maxRadius, custom || auto)
+  const { baseRadius, radiusPerDegree, maxRadius } = graphConfig.node
+  return Math.min(maxRadius, baseRadius + (node.degree || 0) * radiusPerDegree)
 }
 
 function createNodeObject(node) {
@@ -151,7 +149,6 @@ async function loadGraph() {
       properties: e.properties,
       // 颜色优先级：实体自定义颜色 > 类型默认色
       color: e.color || entityColors.value[e.type] || '#888',
-      size: e.size || null, // 自定义大小（null 时按连接数自动计算）
       val: 1, // 布局基础值
     }))
 
@@ -165,10 +162,8 @@ async function loadGraph() {
       const degree = degreeMap[n.id] || 0
       n.degree = degree
       // val 只影响力导向的排斥/质量，不直接决定视觉半径；上限避免中心节点过强
-      const { valPerDegree, maxVal, sizeScale } = graphConfig.node
-      n.val = n.size
-        ? Math.min(maxVal, n.size * sizeScale)
-        : Math.min(maxVal, 1 + degree * valPerDegree)
+      const { valPerDegree, maxVal } = graphConfig.node
+      n.val = Math.min(maxVal, 1 + degree * valPerDegree)
       nodeMap.value[n.id] = n
     })
 

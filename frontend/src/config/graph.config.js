@@ -12,8 +12,6 @@ export const graphConfig = {
     radiusPerDegree: 0.7,
     /** 视觉半径上限（防止中心大节点吞噬画面） */
     maxRadius: 15.0,
-    /** 实体自定义 size 字段 → 半径的换算系数（0 = 不用自定义大小） */
-    sizeScale: 0.6,
     /** 力导向布局中，每条连接增加的"质量"（影响力学，不影响视觉大小） */
     valPerDegree: 0.25,
     /** 布局质量上限 */

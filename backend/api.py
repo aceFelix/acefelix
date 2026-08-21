@@ -49,7 +49,6 @@ class EntityCreate(BaseModel):
     type: str
     properties: Optional[Dict[str, Any]] = {}
     color: Optional[str] = None  # 自定义颜色，None 时使用类型默认色
-    size: Optional[float] = None  # 自定义大小，None 时按连接数自动计算
 
 
 class EntityUpdate(BaseModel):
@@ -59,7 +58,6 @@ class EntityUpdate(BaseModel):
     type: Optional[str] = None
     properties: Optional[Dict[str, Any]] = None
     color: Optional[str] = None  # 传入空串清除自定义颜色，回退类型默认色
-    size: Optional[float] = None  # 传入 0 清除自定义大小，回退自动计算
 
 
 class RelationCreate(BaseModel):
@@ -184,7 +182,6 @@ def create_entity(body: EntityCreate) -> Dict[str, Any]:
         type=body.type,
         properties=body.properties,
         color=body.color,
-        size=body.size,
     )
     return entity.to_dict()
 
@@ -198,7 +195,6 @@ def update_entity(entity_id: str, body: EntityUpdate) -> Dict[str, Any]:
         type=body.type,
         properties=body.properties,
         color=body.color,
-        size=body.size,
     )
     if not entity:
         raise HTTPException(status_code=404, detail="实体不存在")
