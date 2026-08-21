@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "3d-force-graph": "^1.73.0",
+    "three": "^0.185.0",
     "vue": "^3.4.0"
   },
   "devDependencies": {

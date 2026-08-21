@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -81,14 +82,31 @@ class KnowledgeGraph:
                 )
 
     def save(self) -> None:
-        """将图谱数据持久化到 JSON 文件"""
+        """
+        将图谱数据持久化到 JSON 文件
+        优先"写临时文件 + 原子替换"（写入中断不损坏既有数据）；
+        若运行环境的安全组件拦截 rename 类操作，降级为直接写入
+        """
         self.data_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "entities": [e.to_dict() for e in self._entities.values()],
             "relations": [r.to_dict() for r in self._relations.values()],
         }
-        with open(self.data_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        tmp_path = self.data_path.with_suffix(".json.tmp")
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, self.data_path)
+        except PermissionError:
+            # 环境拦截 rename：降级直接写入
+            with open(self.data_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     # ------------------------------------------------------------------ #
     # 实体 CRUD
@@ -280,25 +298,49 @@ class KnowledgeGraph:
     def update_relation(
         self,
         relation_id: str,
+        source: Optional[str] = None,
+        target: Optional[str] = None,
         type: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> Optional[Relation]:
-        """更新关系"""
+        """
+        更新关系
+
+        @param relation_id: 关系 ID
+        @param source: 新源实体 ID（可选）
+        @param target: 新目标实体 ID（可选）
+        @param type: 新关系类型（可选）
+        @param properties: 新属性（可选，整体替换）
+        @return 更新后的 Relation，关系不存在返回 None；新端点不存在抛 ValueError
+        """
         relation = self._relations.get(relation_id)
         if not relation:
             return None
 
+        new_source = source if source is not None else relation.source
+        new_target = target if target is not None else relation.target
+        if new_source not in self._entities or new_target not in self._entities:
+            raise ValueError("源实体或目标实体不存在")
+
+        old_source, old_target = relation.source, relation.target
+        relation.source = new_source
+        relation.target = new_target
         if type is not None:
             relation.type = type
         if properties is not None:
             relation.properties = properties
         relation.updated_at = datetime.now().isoformat()
 
-        # 同步更新图边
-        if relation.source in self.graph and relation.target in self.graph:
-            edge_data = self.graph.edges[relation.source, relation.target]
-            edge_data["type"] = relation.type
-            edge_data["properties"] = relation.properties
+        # 同步更新图边：端点变化时重建边，否则原位更新
+        if self.graph.has_edge(old_source, old_target):
+            self.graph.remove_edge(old_source, old_target)
+        self.graph.add_edge(
+            relation.source,
+            relation.target,
+            id=relation.id,
+            type=relation.type,
+            properties=relation.properties,
+        )
 
         self.save()
         return relation

@@ -14,6 +14,11 @@ dist/
 *.log
 .vite-err.log
 .vite-out.log
+vite.config.js.timestamp-*.mjs
+
+# 本地测试残留（下划线开头，环境恢复后可手动删除）
+backend/_*
+backend/data/graph.json.tmp
 
 # IDE / 工具
 .vscode/

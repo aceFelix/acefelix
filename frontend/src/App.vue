@@ -4,7 +4,7 @@
   @author aceFelix
 -->
 <script setup>
-import { ref, onMounted, provide, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { api } from './api'
 import Graph3D from './components/Graph3D.vue'
 import EntityPanel from './components/EntityPanel.vue'
@@ -78,21 +78,23 @@ async function refreshAll() {
 }
 
 /**
- * 执行搜索
+ * 执行搜索：调后端搜索接口，命中则聚焦第一个结果并打开详情
  */
 async function doSearch() {
   if (!searchQuery.value) return
-  // 触发 3D 图高亮聚焦
-  graphRef.value?.focusNode?.()
-  // 在实体面板过滤
+  try {
+    const results = await api.search(searchQuery.value)
+    if (results.length === 0) {
+      alert(`未找到匹配"${searchQuery.value}"的实体`)
+      return
+    }
+    // 聚焦第一个结果并打开详情面板
+    graphRef.value?.focusNode(results[0].id)
+    await onSelectEntity(results[0].id)
+  } catch (err) {
+    console.error('搜索失败:', err)
+  }
 }
-
-// 实体关联的关系
-const entityRelations = computed(() => {
-  if (!selectedEntity.value) return []
-  // 从完整图谱中提取关联关系
-  return []
-})
 
 onMounted(() => init())
 </script>

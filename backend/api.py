@@ -74,6 +74,8 @@ class RelationCreate(BaseModel):
 class RelationUpdate(BaseModel):
     """更新关系的请求体"""
 
+    source: Optional[str] = None  # 新源实体 ID（可选）
+    target: Optional[str] = None  # 新目标实体 ID（可选）
     type: Optional[str] = None
     properties: Optional[Dict[str, Any]] = None
 
@@ -180,12 +182,17 @@ def create_relation(body: RelationCreate) -> Dict[str, Any]:
 
 @app.put("/api/relations/{relation_id}")
 def update_relation(relation_id: str, body: RelationUpdate) -> Dict[str, Any]:
-    """更新关系"""
-    relation = kg.update_relation(
-        relation_id=relation_id,
-        type=body.type,
-        properties=body.properties,
-    )
+    """更新关系（可修改源/目标实体、类型、属性）"""
+    try:
+        relation = kg.update_relation(
+            relation_id=relation_id,
+            source=body.source,
+            target=body.target,
+            type=body.type,
+            properties=body.properties,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not relation:
         raise HTTPException(status_code=404, detail="关系不存在")
     return relation.to_dict()
