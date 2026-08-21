@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from knowledge_graph import KnowledgeGraph
-from models import ENTITY_COLORS, EntityType, RelationType
+from models import RelationType
 
 # 初始化 FastAPI 应用
 app = FastAPI(
@@ -88,13 +88,72 @@ class RelationUpdate(BaseModel):
 def get_meta() -> Dict[str, Any]:
     """
     获取元数据：实体类型、关系类型、颜色映射
-    供前端渲染使用
+    供前端渲染使用（实体类型为动态类型表）
     """
+    types = kg.list_types()
     return {
-        "entity_types": [e.value for e in EntityType],
+        "entity_types": list(types.keys()),
         "relation_types": [r.value for r in RelationType],
-        "entity_colors": ENTITY_COLORS,
+        "entity_colors": types,
     }
+
+
+# ------------------------------------------------------------------ #
+# 实体类型管理接口
+# ------------------------------------------------------------------ #
+
+class TypeCreate(BaseModel):
+    """新增实体类型的请求体"""
+
+    name: str
+    color: str = "#888888"
+
+
+class TypeUpdate(BaseModel):
+    """修改实体类型的请求体（改色 / 改名）"""
+
+    color: Optional[str] = None
+    new_name: Optional[str] = None
+
+
+@app.get("/api/types")
+def list_types() -> Dict[str, str]:
+    """列出全部实体类型（name -> color）"""
+    return kg.list_types()
+
+
+@app.post("/api/types")
+def create_type(body: TypeCreate) -> Dict[str, str]:
+    """新增实体类型"""
+    try:
+        kg.add_type(body.name, body.color)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"name": body.name.strip(), "color": body.color}
+
+
+@app.put("/api/types/{name}")
+def update_type(name: str, body: TypeUpdate) -> Dict[str, str]:
+    """修改实体类型：改颜色和/或重命名（重命名会级联更新实体）"""
+    try:
+        if body.new_name is not None:
+            kg.rename_type(name, body.new_name)
+            name = body.new_name.strip()
+        if body.color is not None:
+            kg.update_type(name, body.color)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"name": name, "color": kg.list_types()[name]}
+
+
+@app.delete("/api/types/{name}")
+def delete_type(name: str) -> Dict[str, str]:
+    """删除实体类型（有实体使用时拒绝）"""
+    try:
+        kg.delete_type(name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"deleted": name}
 
 
 # ------------------------------------------------------------------ #

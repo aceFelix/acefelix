@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 
 import networkx as nx
 
-from models import Entity, EntityType, Relation, RelationType
+from models import ENTITY_COLORS, Entity, EntityType, Relation, RelationType
 
 
 class KnowledgeGraph:
@@ -39,6 +39,9 @@ class KnowledgeGraph:
         self.graph = nx.DiGraph()
         self._entities: Dict[str, Entity] = {}  # id -> Entity
         self._relations: Dict[str, Relation] = {}  # id -> Relation
+        # 实体类型表：name -> color（动态，持久化于 graph.json）
+        # 默认用 models.ENTITY_COLORS 的 10 种内置类型
+        self._types: Dict[str, str] = dict(ENTITY_COLORS)
         self.load()
 
     # ------------------------------------------------------------------ #
@@ -54,6 +57,11 @@ class KnowledgeGraph:
 
         with open(self.data_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+
+        # 加载实体类型表（旧数据无 types 字段时保留默认 10 种）
+        saved_types = data.get("types")
+        if isinstance(saved_types, dict) and saved_types:
+            self._types = dict(saved_types)
 
         # 加载实体
         for ent_data in data.get("entities", []):
@@ -91,6 +99,7 @@ class KnowledgeGraph:
         data = {
             "entities": [e.to_dict() for e in self._entities.values()],
             "relations": [r.to_dict() for r in self._relations.values()],
+            "types": self._types,
         }
         tmp_path = self.data_path.with_suffix(".json.tmp")
         try:
@@ -107,6 +116,71 @@ class KnowledgeGraph:
                 tmp_path.unlink(missing_ok=True)
             except OSError:
                 pass
+
+    # ------------------------------------------------------------------ #
+    # 实体类型管理（动态，持久化于 graph.json 的 types 字段）
+    # ------------------------------------------------------------------ #
+
+    def list_types(self) -> Dict[str, str]:
+        """返回全部实体类型（name -> color）"""
+        return dict(self._types)
+
+    def add_type(self, name: str, color: str) -> None:
+        """新增实体类型"""
+        name = (name or "").strip()
+        if not name:
+            raise ValueError("类型名称不能为空")
+        if name in self._types:
+            raise ValueError(f"类型已存在: {name}")
+        self._types[name] = color
+        self.save()
+
+    def update_type(self, name: str, color: str) -> None:
+        """修改类型颜色"""
+        if name not in self._types:
+            raise ValueError(f"类型不存在: {name}")
+        self._types[name] = color
+        self.save()
+
+    def rename_type(self, old_name: str, new_name: str) -> None:
+        """
+        重命名类型，并级联更新所有使用该类型的实体
+        """
+        new_name = (new_name or "").strip()
+        if old_name not in self._types:
+            raise ValueError(f"类型不存在: {old_name}")
+        if not new_name:
+            raise ValueError("新名称不能为空")
+        if new_name == old_name:
+            return
+        if new_name in self._types:
+            raise ValueError(f"类型已存在: {new_name}")
+
+        self._types[new_name] = self._types.pop(old_name)
+        for entity in self._entities.values():
+            if entity.type == old_name:
+                entity.type = new_name
+                entity.updated_at = datetime.now().isoformat()
+                if entity.id in self.graph:
+                    self.graph.nodes[entity.id]["type"] = new_name
+        self.save()
+
+    def delete_type(self, name: str) -> None:
+        """
+        删除类型；若有实体正在使用则拒绝（fail-closed）
+        """
+        if name not in self._types:
+            raise ValueError(f"类型不存在: {name}")
+        in_use = sum(1 for e in self._entities.values() if e.type == name)
+        if in_use:
+            raise ValueError(f"类型正在被 {in_use} 个实体使用，无法删除")
+        del self._types[name]
+        self.save()
+
+    def _validate_type(self, type: str) -> None:
+        """校验实体类型已注册"""
+        if type not in self._types:
+            raise ValueError(f"未注册的实体类型: {type}")
 
     # ------------------------------------------------------------------ #
     # 实体 CRUD
@@ -130,6 +204,7 @@ class KnowledgeGraph:
         @param size: 自定义大小（可选，None 时按连接数自动计算）
         @return 创建的 Entity 对象
         """
+        self._validate_type(type)
         entity_id = str(uuid.uuid4())
         entity = Entity(
             id=entity_id,
@@ -194,6 +269,7 @@ class KnowledgeGraph:
         if name is not None:
             entity.name = name
         if type is not None:
+            self._validate_type(type)
             entity.type = type
         if properties is not None:
             entity.properties = properties

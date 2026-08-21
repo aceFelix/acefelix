@@ -32,14 +32,22 @@ const relationPanelRef = ref()
 const statsRef = ref()
 
 /**
+ * 加载元数据（实体类型/关系类型/颜色映射）
+ * 类型管理操作后需重新加载，保证下拉框与 3D 着色同步
+ */
+async function loadMeta() {
+  const meta = await api.getMeta()
+  entityTypes.value = meta.entity_types
+  relationTypes.value = meta.relation_types
+  entityColors.value = meta.entity_colors
+}
+
+/**
  * 初始化：加载元数据和实体列表
  */
 async function init() {
   try {
-    const meta = await api.getMeta()
-    entityTypes.value = meta.entity_types
-    relationTypes.value = meta.relation_types
-    entityColors.value = meta.entity_colors
+    await loadMeta()
     await loadEntities()
   } catch (err) {
     console.error('初始化失败:', err)
@@ -69,9 +77,10 @@ async function onSelectEntity(id) {
 }
 
 /**
- * 刷新所有数据
+ * 刷新所有数据（含元数据，覆盖类型变更场景）
  */
 async function refreshAll() {
+  await loadMeta()
   await loadEntities()
   graphRef.value?.loadGraph()
   statsRef.value?.loadStats()

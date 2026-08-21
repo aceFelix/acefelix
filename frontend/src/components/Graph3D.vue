@@ -9,7 +9,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as THREE from 'three'
+import { forceCollide } from 'd3-force-3d'
 import { api } from '../api'
+import { graphConfig } from '../config/graph.config'
 
 const props = defineProps({
   // 搜索高亮的实体名称
@@ -36,11 +38,20 @@ const projVec = new THREE.Vector3() // 投影复用向量，避免每帧创建�
  * @param {object} node - 节点数据
  * @returns {THREE.Mesh} 球体 Mesh
  */
+/**
+ * 计算节点视觉半径（球体 + 碰撞检测共用）
+ * 优先用自定义 size，否则按连接度数自动计算，均受 maxRadius 上限约束
+ */
+function nodeRadius(node) {
+  const { baseRadius, radiusPerDegree, maxRadius, sizeScale } = graphConfig.node
+  const custom = (node.size || 0) * sizeScale
+  const auto = baseRadius + (node.degree || 0) * radiusPerDegree
+  return Math.min(maxRadius, custom || auto)
+}
+
 function createNodeObject(node) {
-  // 球体半径：优先用自定义大小，否则按 val（连接度数）自动计算
-  const radius = node.size || 1.8 + (node.val || 1) * 1.4
   return new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 24, 24),
+    new THREE.SphereGeometry(nodeRadius(node), 24, 24),
     new THREE.MeshBasicMaterial({ color: node.color })
   )
 }
@@ -151,8 +162,13 @@ async function loadGraph() {
       degreeMap[r.target] = (degreeMap[r.target] || 0) + 1
     })
     nodes.forEach((n) => {
-      // 自定义大小后布局间距跟随（val 影响力导向排斥），否则按连接数
-      n.val = n.size ? n.size * 0.8 : 1 + (degreeMap[n.id] || 0) * 0.5
+      const degree = degreeMap[n.id] || 0
+      n.degree = degree
+      // val 只影响力导向的排斥/质量，不直接决定视觉半径；上限避免中心节点过强
+      const { valPerDegree, maxVal, sizeScale } = graphConfig.node
+      n.val = n.size
+        ? Math.min(maxVal, n.size * sizeScale)
+        : Math.min(maxVal, 1 + degree * valPerDegree)
       nodeMap.value[n.id] = n
     })
 
@@ -213,7 +229,9 @@ async function loadGraph() {
         .linkDirectionalParticleWidth(2)
         .linkDirectionalParticleColor('#9be8e0')
         .linkDirectionalParticleSpeed(0.005)
-        .cooldownTicks(100)
+        // 让力导向充分展开：更多冷却轮数 + 更慢 alpha 衰减
+        .cooldownTicks(graphConfig.force.cooldownTicks)
+        .d3AlphaDecay(graphConfig.force.alphaDecay)
         .onNodeClick((node) => {
           emit('select-entity', node.id)
         })
@@ -223,10 +241,28 @@ async function loadGraph() {
           node.fy = node.y
           node.fz = node.z
         })
+        // 引擎停止后自动把相机拉远到能装下全图
+        .onEngineStop(() => autoFitCamera())
         .width(width)
         .height(height)
+        // 初始相机退后，给布局留出空间
+        .cameraPosition(
+          { x: 0, y: 0, z: graphConfig.camera.initialZ },
+          { x: 0, y: 0, z: 0 },
+          0
+        )
       if (graphInstance.d3Force) {
-        graphInstance.d3Force('charge').strength(-80)
+        // 加大斥力、拉长连线，节点自然散开
+        graphInstance.d3Force('charge').strength(graphConfig.force.chargeStrength)
+        const linkForce = graphInstance.d3Force('link')
+        if (linkForce && linkForce.distance) {
+          linkForce.distance(graphConfig.force.linkDistance)
+        }
+        // 硬碰撞：球体半径 + 标签边距，防止镶嵌重叠
+        graphInstance.d3Force(
+          'collide',
+          forceCollide((n) => nodeRadius(n) + graphConfig.force.collidePadding)
+        )
       }
       console.log('[Graph3D] instance created:', !!graphInstance)
     }
@@ -242,6 +278,41 @@ async function loadGraph() {
 }
 
 /**
+ * 根据节点包围盒自动调整相机距离，使全图完整可见
+ * 默认相机 fov 约 60°，distance = 包围盒对角线 / (2*tan(fov/2)) * margin
+ */
+function autoFitCamera() {
+  if (!graphInstance) return
+  const nodes = graphInstance.graphData().nodes
+  if (!nodes.length) return
+
+  const xs = nodes.map((n) => n.x || 0)
+  const ys = nodes.map((n) => n.y || 0)
+  const zs = nodes.map((n) => n.z || 0)
+  const min = { x: Math.min(...xs), y: Math.min(...ys), z: Math.min(...zs) }
+  const max = { x: Math.max(...xs), y: Math.max(...ys), z: Math.max(...zs) }
+  const center = {
+    x: (min.x + max.x) / 2,
+    y: (min.y + max.y) / 2,
+    z: (min.z + max.z) / 2,
+  }
+  const diagonal = Math.sqrt(
+    Math.pow(max.x - min.x, 2) +
+    Math.pow(max.y - min.y, 2) +
+    Math.pow(max.z - min.z, 2)
+  )
+  // 预留边距；最小距离防止空图怼脸，给标签留出呼吸空间
+  const { fitMargin, minFitDistance } = graphConfig.camera
+  const distance = Math.max(minFitDistance, diagonal / (2 * Math.tan(Math.PI / 6)) * fitMargin)
+
+  graphInstance.cameraPosition(
+    { x: center.x, y: center.y, z: center.z + distance },
+    center,
+    1200
+  )
+}
+
+/**
  * 聚焦到指定节点（相机移动到该节点位置）
  * @param {string} nodeId - 目标节点 ID
  */
@@ -249,7 +320,7 @@ function focusNode(nodeId) {
   if (!graphInstance || !nodeMap.value[nodeId]) return
   const node = nodeMap.value[nodeId]
   if (typeof node.x === 'undefined') return
-  const distance = 120
+  const distance = graphConfig.camera.focusDistance
   const lookAt = { x: node.x, y: node.y, z: node.z }
   const cameraPos = { x: node.x, y: node.y, z: node.z + distance }
   graphInstance.cameraPosition(cameraPos, lookAt, 1000)

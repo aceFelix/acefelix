@@ -2,16 +2,16 @@
   "entities": [
     {
       "id": "ce964d80-02f8-4a9d-8ac5-b35f2d011b9b",
-      "name": "许发明 (aceFelix)",
+      "name": "aceFelix",
       "type": "Person",
       "properties": {
-        "role": "全栈开发者",
-        "github": "acefelix"
+        "role": "developer",
+        "test": true
       },
       "color": null,
       "size": null,
       "created_at": "2026-08-17T17:44:47.512010",
-      "updated_at": "2026-08-17T17:44:47.512041"
+      "updated_at": "2026-08-21T16:35:53.736035"
     },
     {
       "id": "584281f5-2792-49ff-aa85-82ee24ae0ce9",
@@ -21,10 +21,10 @@
         "proficiency": "高级",
         "years": 5
       },
-      "color": null,
+      "color": "#f9ca24",
       "size": null,
       "created_at": "2026-08-17T17:44:47.512975",
-      "updated_at": "2026-08-17T17:44:47.512980"
+      "updated_at": "2026-08-21T16:36:21.556092"
     },
     {
       "id": "2673b434-f8c6-44eb-9b02-73d1fb184e79",
@@ -688,5 +688,17 @@
       "created_at": "2026-08-17T23:27:00.099113",
       "updated_at": "2026-08-17T23:28:51.687710"
     }
-  ]
+  ],
+  "types": {
+    "Person": "#ff6b6b",
+    "Skill": "#4ecdc4",
+    "Knowledge": "#45b7d1",
+    "Interest": "#f9ca24",
+    "Project": "#a55eea",
+    "Task": "#fd79a8",
+    "Tool": "#6c5ce7",
+    "Education": "#00b894",
+    "Goal": "#e17055",
+    "Event": "#fdcb6e"
+  }
 }

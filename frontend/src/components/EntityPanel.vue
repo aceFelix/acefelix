@@ -6,6 +6,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
+import TypeManager from './TypeManager.vue'
 
 const props = defineProps({
   entityTypes: { type: Array, default: () => [] },
@@ -24,6 +25,7 @@ const PRESET_COLORS = [
 const entities = ref([])
 const filterType = ref('')
 const searchQuery = ref('')
+const showTypeManager = ref(false)
 
 // 新增/编辑表单
 const showForm = ref(false)
@@ -149,7 +151,10 @@ defineExpose({ loadEntities })
   <div class="entity-panel">
     <div class="panel-header">
       <h3>实体管理</h3>
-      <button class="btn btn-primary" @click="openAdd">+ 新增</button>
+      <div class="header-actions">
+        <button class="icon-btn" title="类型管理" @click="showTypeManager = true">⚙</button>
+        <button class="btn btn-primary" @click="openAdd">+ 新增</button>
+      </div>
     </div>
 
     <!-- 过滤与搜索 -->
@@ -247,6 +252,13 @@ defineExpose({ loadEntities })
         </div>
       </div>
     </div>
+
+    <!-- 类型管理弹窗 -->
+    <TypeManager
+      v-if="showTypeManager"
+      @close="showTypeManager = false"
+      @refresh="emit('refresh')"
+    />
   </div>
 </template>
 
@@ -266,6 +278,11 @@ defineExpose({ loadEntities })
 .panel-header h3 {
   font-size: 14px;
   font-weight: 600;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .filters {
   display: flex;
