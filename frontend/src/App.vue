@@ -226,6 +226,7 @@ onMounted(() => init())
   padding: 0 20px;
   height: 52px;
   background: var(--bg-panel);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
   z-index: 10;
 }
@@ -260,6 +261,7 @@ onMounted(() => init())
 .sidebar {
   width: 300px;
   background: var(--bg-panel);
+  backdrop-filter: blur(8px);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;

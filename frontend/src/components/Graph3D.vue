@@ -59,13 +59,131 @@ function nodeRadius(node) {
   return Math.min(maxRadius, baseRadius + (node.degree || 0) * radiusPerDegree)
 }
 
+// 光晕/星云共用的柔光贴图（canvas 径向渐变，全局复用一份）
+let glowTexture = null
+
+/**
+ * 生成径向渐变柔光贴图（中心亮、边缘透明）
+ */
+function getGlowTexture() {
+  if (glowTexture) return glowTexture
+  const size = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  g.addColorStop(0, 'rgba(255,255,255,1)')
+  g.addColorStop(0.25, 'rgba(255,255,255,0.55)')
+  g.addColorStop(0.6, 'rgba(255,255,255,0.12)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, size, size)
+  glowTexture = new THREE.CanvasTexture(canvas)
+  return glowTexture
+}
+
+/**
+ * 创建节点对象：星球（受光照球体 + 自发光）+ 大气光晕（面向相机的 Sprite）
+ * @param {object} node - 节点数据
+ * @returns {THREE.Group}
+ */
 function createNodeObject(node) {
   // 高亮激活时，非高亮节点用暗色球体（视觉淡化）
   const dimmed = hlNodes.value.size > 0 && !hlNodes.value.has(node.id)
-  return new THREE.Mesh(
-    new THREE.SphereGeometry(nodeRadius(node), 24, 24),
-    new THREE.MeshBasicMaterial({ color: dimmed ? '#28303f' : node.color })
+  const radius = nodeRadius(node)
+  const { glowScale, glowOpacity, emissive } = graphConfig.cosmos
+
+  const group = new THREE.Group()
+  // 星球本体：受光照 + 自发光，产生明暗面和辉光
+  const material = new THREE.MeshStandardMaterial({
+    color: dimmed ? '#2a3142' : node.color,
+    emissive: dimmed ? '#000000' : node.color,
+    emissiveIntensity: dimmed ? 0 : emissive,
+    roughness: 0.45,
+    metalness: 0.1,
+  })
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 32), material))
+  // 大气光晕：Sprite 始终面向相机，柔光包边
+  const glow = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: getGlowTexture(),
+      color: node.color,
+      transparent: true,
+      opacity: dimmed ? 0.05 : glowOpacity,
+      depthWrite: false,
+    })
   )
+  glow.scale.set(radius * glowScale, radius * glowScale, 1)
+  group.add(glow)
+  return group
+}
+
+/**
+ * 搭建宇宙场景：灯光 + 粒子星空 + 远处星云
+ * @param {THREE.Scene} scene - 3d-force-graph 的场景对象
+ */
+function setupCosmos(scene) {
+  const { starCount, starRadius, nebulaCount } = graphConfig.cosmos
+  // 灯光：环境光保证球体可见，定向光打出明暗面（星球立体感）
+  scene.add(new THREE.AmbientLight(0xaabbee, 1.1))
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9)
+  dirLight.position.set(300, 400, 500)
+  scene.add(dirLight)
+
+  // 星空：两组星点（大量小星 + 少量亮星），球壳随机分布在图谱外围
+  const makeStars = (count, size, opacity) => {
+    const positions = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      const r = starRadius[0] + Math.random() * (starRadius[1] - starRadius[0])
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(2 * Math.random() - 1)
+      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta)
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
+      positions[i * 3 + 2] = r * Math.cos(phi)
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    scene.add(
+      new THREE.Points(
+        geo,
+        new THREE.PointsMaterial({
+          color: 0xffffff,
+          size,
+          sizeAttenuation: false, // 星点屏幕大小恒定，像真实星星
+          transparent: true,
+          opacity,
+          depthWrite: false,
+        })
+      )
+    )
+  }
+  makeStars(Math.floor(starCount * 0.8), 1.6, 0.8)
+  makeStars(Math.floor(starCount * 0.2), 2.6, 0.95)
+
+  // 星云：远处大面积柔光色团（淡紫/蓝/青），制造银河纵深感
+  const nebulaColors = [0x6c5ce7, 0x45b7d1, 0x4ecdc4, 0xa55eea, 0x34495e, 0x2c3e87]
+  for (let i = 0; i < nebulaCount; i++) {
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: getGlowTexture(),
+        color: nebulaColors[i % nebulaColors.length],
+        transparent: true,
+        opacity: 0.06 + Math.random() * 0.05,
+        depthWrite: false,
+      })
+    )
+    const r = 900 + Math.random() * 500
+    const theta = Math.random() * Math.PI * 2
+    const phi = Math.acos(2 * Math.random() - 1)
+    sprite.position.set(
+      r * Math.sin(phi) * Math.cos(theta),
+      r * Math.sin(phi) * Math.sin(theta),
+      r * Math.cos(phi)
+    )
+    const s = 500 + Math.random() * 600
+    sprite.scale.set(s, s, 1)
+    scene.add(sprite)
+  }
 }
 
 /**
@@ -391,7 +509,7 @@ async function loadGraph() {
       // 注意：必须使用 new 或 ForceGraph3D()(dom) 触发 Kapsule 初始化，
       // 直接 ForceGraph3D(dom) 调用会跳过 init，导致 canvas 不创建
       graphInstance = new ForceGraph3D(containerRef.value)
-        .backgroundColor('#0a0a0f')
+        .backgroundColor(graphConfig.cosmos.spaceColor)
         .graphData({ nodes, links })
         .nodeLabel((node) => {
           const propsStr = node.properties && Object.keys(node.properties).length
@@ -468,6 +586,8 @@ async function loadGraph() {
           forceCollide((n) => nodeRadius(n) + graphConfig.force.collidePadding)
         )
       }
+      // 搭建宇宙场景：灯光、星空、星云
+      setupCosmos(graphInstance.scene())
       console.log('[Graph3D] instance created:', !!graphInstance)
     }
 

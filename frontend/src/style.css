@@ -5,14 +5,15 @@
 }
 
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #14141f;
-  --bg-panel: rgba(20, 20, 31, 0.95);
-  --text-primary: #e8e8f0;
-  --text-secondary: #9090a8;
+  /* 宇宙银河主题 */
+  --bg-primary: #05070f;
+  --bg-secondary: #0c1222;
+  --bg-panel: rgba(12, 18, 34, 0.85);
+  --text-primary: #e6ecf5;
+  --text-secondary: #8b96b0;
   --accent: #4ecdc4;
   --accent-hover: #6ee0d8;
-  --border: rgba(255, 255, 255, 0.08);
+  --border: rgba(150, 180, 255, 0.1);
   --danger: #ff6b6b;
   --success: #00b894;
 }
@@ -22,8 +23,12 @@ html, body, #app {
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: var(--bg-primary);
   color: var(--text-primary);
+  /* 深空银河底色：远处几团星云微光 + 中心深空 */
+  background:
+    radial-gradient(ellipse at 75% 15%, rgba(60, 50, 130, 0.28) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 85%, rgba(30, 60, 120, 0.22) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, #0a0e1c 0%, #05070f 100%);
 }
 
 /* 滚动条样式 */
