@@ -98,11 +98,12 @@ function linkColorFn(link) {
 
 /**
  * 高亮状态变化后强制重绘节点/连线颜色
+ * 注意：每次传新函数引用，确保 Kapsule prop diff 检测到变化触发重绘
  */
 function refreshHighlight() {
   if (!graphInstance) return
-  graphInstance.nodeColor(nodeColorFn)
-  graphInstance.linkColor(linkColorFn)
+  graphInstance.nodeColor((node) => nodeColorFn(node))
+  graphInstance.linkColor((link) => linkColorFn(link))
   graphInstance.nodeThreeObject((node) => createNodeObject(node))
 }
 
@@ -141,10 +142,12 @@ function toggleMode(m) {
 }
 
 /**
- * 聚焦模式：以 node 为中心，本地 BFS 计算两跳邻域并高亮
+ * 邻域高亮：以 node 为中心，本地 BFS 计算 N 跳邻域
+ * @param {object} node - 中心节点
+ * @param {number} hops - 跳数（单击默认 1 跳=直接关系；聚焦模式 2 跳）
  */
-function focusNeighborhood(node) {
-  // BFS 两跳（无向视角：既看入边也看出边）
+function focusNeighborhood(node, hops = 1) {
+  // BFS（无向视角：既看入边也看出边）
   const adjacency = {}
   const links = graphInstance.graphData().links
   links.forEach((l) => {
@@ -155,7 +158,7 @@ function focusNeighborhood(node) {
   })
   const visited = new Set([node.id])
   let frontier = [node.id]
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < hops; i++) {
     const next = []
     frontier.forEach((id) => {
       ;(adjacency[id] || []).forEach((nb) => {
@@ -168,7 +171,7 @@ function focusNeighborhood(node) {
     frontier = next
   }
   hlNodes.value = visited
-  hlLinks.value = new Set() // 聚焦模式按端点判断，无需边集合
+  hlLinks.value = new Set() // 邻域模式按端点判断，无需边集合
   refreshHighlight()
 }
 
@@ -228,15 +231,15 @@ function pathText(p) {
  */
 function onGraphNodeClick(node) {
   if (mode.value === 'focus') {
-    focusNeighborhood(node)
+    focusNeighborhood(node, 2) // 聚焦模式：两跳深挖
     return
   }
   if (mode.value === 'path') {
     handlePathPick(node)
     return
   }
-  // 默认交互：打开详情 + 直接高亮该节点两跳邻域（无需先激活模式）
-  focusNeighborhood(node)
+  // 默认交互：高亮直接关系（一跳）+ 打开详情
+  focusNeighborhood(node, 1)
   emit('select-entity', node.id)
 }
 
@@ -581,7 +584,7 @@ defineExpose({ loadGraph, focusNode })
       <button
         class="tool-btn"
         :class="{ active: mode === 'focus' || (hlNodes.size > 0 && !pathResult) }"
-        title="开启后单击节点，高亮其两跳邻域"
+        title="开启后单击节点，高亮其两跳邻域（默认单击为一跳直接关系）"
         @click="toggleMode('focus')"
       >聚焦</button>
       <button
