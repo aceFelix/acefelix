@@ -112,12 +112,13 @@ function getPlanetTexture(hexColor) {
     return seed / 4294967296
   }
 
-  // 地形色斑：明暗椭圆随机散布，模拟大陆/海洋/云层
-  for (let i = 0; i < 42; i++) {
+  // 地形色斑：大块明暗区域，模拟大陆/海洋/云层
+  // （块面大而对比强，远处也能看出地形起伏感）
+  for (let i = 0; i < 26; i++) {
     const x = rand() * w
     const y = rand() * h
-    const r = 4 + rand() * 18
-    ctx.fillStyle = rand() > 0.5 ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.16)'
+    const r = 10 + rand() * 26
+    ctx.fillStyle = rand() > 0.5 ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.24)'
     ctx.beginPath()
     ctx.ellipse(x, y, r, r * (0.5 + rand() * 0.5), rand() * Math.PI, 0, Math.PI * 2)
     ctx.fill()
@@ -125,12 +126,12 @@ function getPlanetTexture(hexColor) {
 
   // 极地冰盖：上下边缘泛白
   const topGrad = ctx.createLinearGradient(0, 0, 0, h * 0.16)
-  topGrad.addColorStop(0, 'rgba(255,255,255,0.35)')
+  topGrad.addColorStop(0, 'rgba(255,255,255,0.45)')
   topGrad.addColorStop(1, 'rgba(255,255,255,0)')
   ctx.fillStyle = topGrad
   ctx.fillRect(0, 0, w, h * 0.16)
   const bottomGrad = ctx.createLinearGradient(0, h, 0, h * 0.84)
-  bottomGrad.addColorStop(0, 'rgba(255,255,255,0.35)')
+  bottomGrad.addColorStop(0, 'rgba(255,255,255,0.45)')
   bottomGrad.addColorStop(1, 'rgba(255,255,255,0)')
   ctx.fillStyle = bottomGrad
   ctx.fillRect(0, h * 0.84, w, h * 0.16)
@@ -310,8 +311,8 @@ function setupCosmos(scene) {
     )
     // 吸积盘：橙色发光圆环，倾斜视角更有立体感
     const disk = new THREE.Mesh(
-      new THREE.TorusGeometry(blackHole.size * 2.1, blackHole.size * 0.42, 24, 64),
-      new THREE.MeshBasicMaterial({ color: 0xffaa55, transparent: true, opacity: 0.9 })
+      new THREE.TorusGeometry(blackHole.size * 1.9, blackHole.size * 0.34, 24, 64),
+      new THREE.MeshBasicMaterial({ color: 0xffaa55, transparent: true, opacity: 0.85 })
     )
     disk.rotation.x = Math.PI / 2.4
     bh.add(disk)
@@ -321,11 +322,11 @@ function setupCosmos(scene) {
         map: getGlowTexture(),
         color: 0xffb060,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.35,
         depthWrite: false,
       })
     )
-    glow.scale.set(blackHole.size * 7, blackHole.size * 7, 1)
+    glow.scale.set(blackHole.size * 6, blackHole.size * 6, 1)
     bh.add(glow)
     bh.position.set(...blackHole.position)
     scene.add(bh)
