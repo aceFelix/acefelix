@@ -47,23 +47,23 @@ export const graphConfig = {
   // ---------- 宇宙银河氛围 ----------
   cosmos: {
     /** 星星数量（悬浮在图谱外围的粒子点） */
-    starCount: 2000,
+    starCount: 3500,
     /** 星星分布半径范围 [内径, 外径]（必须大于图谱扩散范围） */
-    starRadius: [450, 1600],
-    /** 远处星云团数量（大面积柔光色块，双层：柔光+亮核） */
+    starRadius: [450, 1800],
+    /** 远处星云团数量（大面积絮状云雾色块） */
     nebulaCount: 10,
-    /** 银河带星点数量（聚集在倾斜亮带横贯天穹） */
-    galaxyBandCount: 1200,
+    /** 银河旋臂星点数量（含中心核球与四条旋臂） */
+    galaxyBandCount: 1500,
     /** 黑洞：纯黑球体 + 吸积盘，远处固定 [x, y, z] 与半径 */
     blackHole: { position: [-950, 260, -1100], size: 55 },
     /** 星球地表纹理开关（程序化生成分色地形） */
     planetTexture: true,
     /** 星球光晕尺寸 = 球体半径 × 该倍数 */
-    glowScale: 3.4,
+    glowScale: 3.5,
     /** 光晕透明度（0~1） */
     glowOpacity: 0.5,
     /** 星球自发光强度（0=无发光，1=亮如恒星） */
-    emissive: 0.35,
+    emissive: 0.40,
     /** 场景深空背景色 */
     spaceColor: '#04060e',
   },

@@ -10,8 +10,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+import uuid
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from knowledge_graph import KnowledgeGraph
@@ -35,6 +37,12 @@ app.add_middleware(
 # 初始化知识图谱引擎
 DATA_PATH = Path(__file__).parent / "data" / "graph.json"
 kg = KnowledgeGraph(str(DATA_PATH))
+
+# 上传文件存储目录（实体属性图片）
+UPLOAD_DIR = Path(__file__).parent / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+# 挂载静态文件服务，前端可通过 /uploads/{filename} 访问上传的图片
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
 # ------------------------------------------------------------------ #
@@ -388,6 +396,25 @@ def search_entities(q: str) -> List[Dict[str, Any]]:
 def get_stats() -> Dict[str, Any]:
     """获取图谱统计信息"""
     return kg.get_stats()
+
+
+# ------------------------------------------------------------------ #
+# 文件上传接口
+# ------------------------------------------------------------------ #
+
+@app.post("/api/upload")
+def upload_file(file: UploadFile = File(...)) -> Dict[str, str]:
+    """上传图片并返回访问 URL，供实体属性引用"""
+    # 简单校验 MIME 类型，只允许图片
+    if file.content_type not in ("image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/svg+xml"):
+        raise HTTPException(status_code=400, detail="仅支持图片文件")
+    # 生成唯一文件名
+    ext = Path(file.filename).suffix.lower() or ".png"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    save_path = UPLOAD_DIR / filename
+    with save_path.open("wb") as f:
+        f.write(file.file.read())
+    return {"url": f"/uploads/{filename}"}
 
 
 # ------------------------------------------------------------------ #

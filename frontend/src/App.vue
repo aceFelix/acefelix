@@ -109,6 +109,22 @@ async function doSearch() {
   }
 }
 
+/**
+ * 判断属性值是否为图片 URL
+ */
+function isImageUrl(value) {
+  if (typeof value !== 'string') return false
+  return /^https?:\/\//i.test(value) || value.startsWith('/uploads/')
+}
+
+/**
+ * 补全图片地址
+ */
+function imageSrc(url) {
+  if (url.startsWith('http')) return url
+  return `http://127.0.0.1:8800${url}`
+}
+
 onMounted(() => init())
 </script>
 
@@ -195,7 +211,12 @@ onMounted(() => init())
               <div class="prop-list">
                 <div class="prop-item" v-for="(val, key) in selectedEntity.properties" :key="key">
                   <span class="prop-key">{{ key }}</span>
-                  <span class="prop-val">{{ val }}</span>
+                  <template v-if="isImageUrl(val)">
+                    <a :href="imageSrc(val)" target="_blank" class="prop-image-link">
+                      <img :src="imageSrc(val)" class="prop-image" />
+                    </a>
+                  </template>
+                  <span v-else class="prop-val">{{ val }}</span>
                 </div>
               </div>
             </div>
@@ -216,6 +237,7 @@ onMounted(() => init())
   display: flex;
   flex-direction: column;
   height: 100vh;
+  position: relative;
 }
 
 /* 顶部栏 */
@@ -226,8 +248,9 @@ onMounted(() => init())
   padding: 0 20px;
   height: 52px;
   background: var(--bg-panel);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   z-index: 10;
 }
 .logo {
@@ -255,17 +278,21 @@ onMounted(() => init())
   flex: 1;
   display: flex;
   overflow: hidden;
+  position: relative;
 }
 
-/* 侧边栏 */
+/* 侧边栏：悬浮在 3D 宇宙背景之上 */
 .sidebar {
   width: 300px;
   background: var(--bg-panel);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(16px);
   border-right: 1px solid var(--border);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  z-index: 2;
 }
 .sidebar.right {
   border-right: none;
@@ -299,12 +326,13 @@ onMounted(() => init())
   flex-direction: column;
 }
 
-/* 图谱区域 */
+/* 图谱区域：占据主区域剩余空间，工具条和详情面板互不遮挡 */
 .graph-area {
   flex: 1;
   position: relative;
-  overflow: hidden;
   min-width: 0;
+  overflow: hidden;
+  z-index: 0;
 }
 
 /* 详情面板 */
@@ -365,6 +393,17 @@ onMounted(() => init())
   color: var(--text-primary);
   font-weight: 500;
 }
+.prop-image-link {
+  display: block;
+  max-width: 180px;
+}
+.prop-image {
+  max-width: 100%;
+  max-height: 120px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
 .icon-btn {
   border: none;
   background: transparent;
@@ -381,5 +420,10 @@ onMounted(() => init())
 
 footer {
   border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  position: relative;
+  z-index: 10;
 }
 </style>

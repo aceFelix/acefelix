@@ -152,8 +152,11 @@ onMounted(() => load())
       </div>
 
       <!-- 新增类型 -->
-      <div class="add-row">
-        <input class="input name-input" v-model="newName" placeholder="新类型名称" @keyup.enter="addType" />
+      <div class="add-section">
+        <div class="add-row-top">
+          <input class="input name-input" v-model="newName" placeholder="新类型名称" @keyup.enter="addType" />
+          <button class="btn btn-primary" @click="addType">添加</button>
+        </div>
         <div class="mini-colors">
           <div
             v-for="c in PRESET_COLORS"
@@ -164,7 +167,6 @@ onMounted(() => load())
             @click="newColor = c"
           ></div>
         </div>
-        <button class="btn btn-primary" @click="addType">添加</button>
       </div>
 
       <div class="form-actions">
@@ -266,19 +268,25 @@ onMounted(() => load())
   font-size: 13px;
 }
 
-.add-row {
+.add-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.add-row-top {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 .name-input {
-  width: 140px;
+  flex: 1;
+  min-width: 0;
 }
 .mini-colors {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  flex: 1;
+  justify-content: center;
+  gap: 6px;
 }
 .mini-color {
   width: 16px;

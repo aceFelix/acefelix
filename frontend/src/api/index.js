@@ -62,4 +62,20 @@ export const api = {
     request(`/graph/common?entity=${entity}&other=${other}`),
   search: (q) => request(`/search?q=${encodeURIComponent(q)}`),
   getStats: () => request('/stats'),
+
+  // 文件上传（图片），返回 { url }
+  uploadFile: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return fetch(`${BASE_URL}/upload`, {
+      method: 'POST',
+      body: form,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(err.detail || '上传失败')
+      }
+      return res.json()
+    })
+  },
 }

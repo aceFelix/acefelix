@@ -27,6 +27,7 @@ const entities = ref([])
 const filterType = ref('')
 const searchQuery = ref('')
 const showTypeManager = ref(false)
+const hoveredId = ref('')
 
 // 新增/编辑表单
 const showForm = ref(false)
@@ -34,6 +35,12 @@ const editingId = ref(null)
 const form = ref({ name: '', type: '', properties: '{}', color: '' })
 // 表单打开时的数据版本（乐观锁：提交时校验，防多页面并发覆盖）
 const formVersion = ref(null)
+
+// 图片属性管理
+const imagePropName = ref('image')
+const imageUrl = ref('')
+const uploading = ref(false)
+const uploadError = ref('')
 
 /**
  * 计算实体显示颜色：自定义颜色 > 类型默认色
@@ -95,6 +102,102 @@ function openEdit(entity) {
   }
   showForm.value = true
 }
+
+/**
+ * 解析当前 properties JSON
+ */
+function getProperties() {
+  try {
+    return form.value.properties && form.value.properties.trim()
+      ? JSON.parse(form.value.properties)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * 把图片 URL 写入指定属性键
+ */
+function setImageProp(key, url) {
+  const properties = getProperties()
+  properties[key] = url
+  form.value.properties = JSON.stringify(properties, null, 2)
+}
+
+/**
+ * 添加图片 URL 属性
+ */
+function addImageUrl() {
+  const key = imagePropName.value.trim()
+  const url = imageUrl.value.trim()
+  if (!key || !url) return
+  setImageProp(key, url)
+  imageUrl.value = ''
+}
+
+/**
+ * 上传本地图片并写入属性
+ */
+async function uploadImage(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  uploadError.value = ''
+  uploading.value = true
+  try {
+    const { url } = await api.uploadFile(file)
+    // 自动生成不重复的键名
+    const properties = getProperties()
+    let key = imagePropName.value.trim() || 'image'
+    let idx = 1
+    const base = key
+    while (properties[key] !== undefined) {
+      key = `${base}_${idx++}`
+    }
+    setImageProp(key, `http://127.0.0.1:8800${url}`)
+  } catch (err) {
+    uploadError.value = err.message || '上传失败'
+  } finally {
+    uploading.value = false
+    event.target.value = ''
+  }
+}
+
+/**
+ * 删除图片属性
+ */
+function removeImageProp(key) {
+  const properties = getProperties()
+  delete properties[key]
+  form.value.properties = JSON.stringify(properties, null, 2)
+}
+
+/**
+ * 判断属性值是否为图片 URL
+ */
+function isImageUrl(value) {
+  if (typeof value !== 'string') return false
+  return /^https?:\/\//i.test(value) || value.startsWith('/uploads/')
+}
+
+/**
+ * 补全图片地址（相对路径补成后端绝对 URL）
+ */
+function imageSrc(url) {
+  if (typeof url !== 'string') return ''
+  if (url.startsWith('http')) return url
+  return `http://127.0.0.1:8800${url}`
+}
+
+/**
+ * 当前 JSON 中的图片属性列表
+ */
+const imagePropsList = computed(() => {
+  const properties = getProperties()
+  return Object.entries(properties)
+    .filter(([, value]) => isImageUrl(value))
+    .map(([key, value]) => ({ key, value }))
+})
 
 /**
  * 提交表单（新增或更新）
@@ -171,10 +274,15 @@ defineExpose({ loadEntities })
         class="entity-item"
         :class="{ selected: entity.id === selectedId }"
         @click="emit('select', entity.id)"
+        @mouseenter="hoveredId = entity.id"
+        @mouseleave="hoveredId = ''"
       >
         <div class="entity-info">
           <span class="entity-dot" :style="{ background: entityColor(entity) }"></span>
-          <span class="entity-name">{{ entity.name }}</span>
+          <span
+            class="entity-name"
+            :style="entity.id === selectedId || entity.id === hoveredId ? { color: entityColor(entity) } : {}"
+          >{{ entity.name }}</span>
           <span class="tag" :style="{ background: entityColor(entity) + '33', color: entityColor(entity) }">{{ entity.type }}</span>
         </div>
         <div class="entity-actions">
@@ -202,6 +310,33 @@ defineExpose({ loadEntities })
         <div class="form-group">
           <label>属性 (JSON)</label>
           <textarea class="input textarea" v-model="form.properties" placeholder='{"key": "value"}'></textarea>
+        </div>
+        <div class="form-group">
+          <label>图片属性</label>
+          <div class="image-props">
+            <div
+              v-for="img in imagePropsList"
+              :key="img.key"
+              class="image-prop-item"
+            >
+              <img :src="imageSrc(img.value)" class="image-thumb" />
+              <span class="image-key">{{ img.key }}</span>
+              <button class="icon-btn danger" @click="removeImageProp(img.key)" title="删除">✕</button>
+            </div>
+            <div v-if="imagePropsList.length === 0" class="empty-hint small">暂无图片属性</div>
+          </div>
+          <div class="image-add-row">
+            <input class="input" v-model="imagePropName" placeholder="属性名" style="width: 90px" />
+            <input class="input" v-model="imageUrl" placeholder="粘贴图片 URL" />
+            <button class="btn" @click="addImageUrl" :disabled="!imageUrl.trim()">添加</button>
+          </div>
+          <div class="image-upload-row">
+            <label class="btn image-upload-btn">
+              <input type="file" accept="image/*" @change="uploadImage" :disabled="uploading" />
+              {{ uploading ? '上传中...' : '上传本地图片' }}
+            </label>
+            <span v-if="uploadError" class="upload-error">{{ uploadError }}</span>
+          </div>
         </div>
         <div class="form-group">
           <label>颜色（可选，留空使用类型默认色）</label>
@@ -344,6 +479,10 @@ defineExpose({ loadEntities })
   color: var(--text-secondary);
   font-size: 13px;
 }
+.empty-hint.small {
+  padding: 8px 0;
+  font-size: 12px;
+}
 
 /* 弹窗 */
 .modal-overlay {
@@ -362,6 +501,8 @@ defineExpose({ loadEntities })
   padding: 24px;
   width: 480px;
   max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 .modal h3 {
   margin-bottom: 16px;
@@ -386,6 +527,67 @@ defineExpose({ loadEntities })
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
+}
+
+/* 图片属性 */
+.image-props {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.image-prop-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+}
+.image-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.image-key {
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.image-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.image-add-row .input {
+  flex: 1;
+  min-width: 0;
+}
+.image-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.image-upload-btn {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+.image-upload-btn input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.upload-error {
+  color: var(--danger);
+  font-size: 12px;
 }
 
 /* 颜色选择器 */
