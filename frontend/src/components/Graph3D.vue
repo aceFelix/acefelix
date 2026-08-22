@@ -22,6 +22,9 @@ const emit = defineEmits(['select-entity'])
 const containerRef = ref(null)
 let graphInstance = null
 let ForceGraph3D = null
+// 仅在数据加载/刷新后的引擎冷却完成时自动适配相机一次；
+// 用户拖拽节点引发的重新加热不触发，避免视角被强制拉回
+let needAutoFit = true
 const entityColors = ref({})
 const relationLabels = ref({}) // 关系类型代码 -> 中文标签（路径面板显示用）
 const nodeMap = ref({}) // id -> node data
@@ -232,6 +235,8 @@ function onGraphNodeClick(node) {
     handlePathPick(node)
     return
   }
+  // 默认交互：打开详情 + 直接高亮该节点两跳邻域（无需先激活模式）
+  focusNeighborhood(node)
   emit('select-entity', node.id)
 }
 
@@ -258,8 +263,8 @@ function setupLabelLayer(nodes) {
     el.className = 'graph-label'
     el.textContent = node.name
     el.style.borderColor = node.color
-    // 点击标签等效点击节点，联动右侧详情面板
-    el.addEventListener('click', () => emit('select-entity', node.id))
+    // 点击标签等效点击节点：开详情 + 高亮两跳邻域
+    el.addEventListener('click', () => onGraphNodeClick(node))
     labelLayer.appendChild(el)
     labelEls.set(node.id, { el, node })
   })
@@ -325,6 +330,8 @@ async function loadGraph() {
     const [meta, graphData] = await Promise.all([api.getMeta(), api.getGraph()])
     entityColors.value = meta.entity_colors
     relationLabels.value = meta.relation_type_labels || {}
+    // 数据刷新：允许下一次引擎冷却后自动适配一次相机
+    needAutoFit = true
 
     // 构造 3d-force-graph 所需的数据格式
     const nodes = graphData.entities.map((e) => ({
@@ -417,9 +424,11 @@ async function loadGraph() {
           onGraphNodeClick(node)
         })
         .onBackgroundClick(() => {
-          // 点击空白区域：退出高亮/路径选择状态
-          if (mode.value || hlNodes.value.size > 0 || pathResult.value) {
-            resetHighlight()
+          // 点空白只取消未完成的路径选择，不清高亮——
+          // 清高亮统一走「重置」按钮，避免旋转视角时误触清空
+          if (mode.value === 'path') {
+            pathPick.value = { stage: 'start' }
+            pathHint.value = '已取消，请点击起点实体'
           }
         })
         .onNodeDragEnd((node) => {
@@ -428,8 +437,13 @@ async function loadGraph() {
           node.fy = node.y
           node.fz = node.z
         })
-        // 引擎停止后自动把相机拉远到能装下全图
-        .onEngineStop(() => autoFitCamera())
+        // 引擎停止后自动把相机拉远到能装下全图（仅首次加载/数据刷新时）
+        .onEngineStop(() => {
+          if (needAutoFit) {
+            needAutoFit = false
+            autoFitCamera()
+          }
+        })
         .width(width)
         .height(height)
         // 初始相机退后，给布局留出空间
