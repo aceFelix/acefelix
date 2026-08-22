@@ -50,14 +50,20 @@ export const graphConfig = {
     starCount: 2000,
     /** 星星分布半径范围 [内径, 外径]（必须大于图谱扩散范围） */
     starRadius: [450, 1600],
-    /** 远处星云团数量（大面积柔光色块） */
-    nebulaCount: 6,
+    /** 远处星云团数量（大面积柔光色块，双层：柔光+亮核） */
+    nebulaCount: 10,
+    /** 银河带星点数量（聚集在倾斜亮带横贯天穹） */
+    galaxyBandCount: 1200,
+    /** 黑洞：纯黑球体 + 吸积盘，远处固定 [x, y, z] 与半径 */
+    blackHole: { position: [-950, 260, -1100], size: 55 },
+    /** 星球地表纹理开关（程序化生成分色地形） */
+    planetTexture: true,
     /** 星球光晕尺寸 = 球体半径 × 该倍数 */
     glowScale: 3.4,
     /** 光晕透明度（0~1） */
-    glowOpacity: 0.55,
+    glowOpacity: 0.5,
     /** 星球自发光强度（0=无发光，1=亮如恒星） */
-    emissive: 0.4,
+    emissive: 0.35,
     /** 场景深空背景色 */
     spaceColor: '#04060e',
   },

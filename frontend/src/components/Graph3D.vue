@@ -82,6 +82,64 @@ function getGlowTexture() {
   return glowTexture
 }
 
+// 星球地表纹理缓存（同色节点共享一张贴图）
+const planetTextureCache = new Map()
+
+/**
+ * 程序化生成星球地表纹理：基底节点色 + 地形色斑 + 极地冰盖
+ * 用颜色值做随机种子，同颜色星球地表一致
+ * @param {string} hexColor - 节点颜色
+ * @returns {THREE.CanvasTexture}
+ */
+function getPlanetTexture(hexColor) {
+  if (planetTextureCache.has(hexColor)) return planetTextureCache.get(hexColor)
+  const w = 256
+  const h = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+
+  // 基底：节点色
+  ctx.fillStyle = hexColor
+  ctx.fillRect(0, 0, w, h)
+
+  // 用颜色字符串做种子的线性同余伪随机
+  let seed = 0
+  for (const c of hexColor) seed = (seed * 31 + c.charCodeAt(0)) >>> 0
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 4294967296
+  }
+
+  // 地形色斑：明暗椭圆随机散布，模拟大陆/海洋/云层
+  for (let i = 0; i < 42; i++) {
+    const x = rand() * w
+    const y = rand() * h
+    const r = 4 + rand() * 18
+    ctx.fillStyle = rand() > 0.5 ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.16)'
+    ctx.beginPath()
+    ctx.ellipse(x, y, r, r * (0.5 + rand() * 0.5), rand() * Math.PI, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // 极地冰盖：上下边缘泛白
+  const topGrad = ctx.createLinearGradient(0, 0, 0, h * 0.16)
+  topGrad.addColorStop(0, 'rgba(255,255,255,0.35)')
+  topGrad.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = topGrad
+  ctx.fillRect(0, 0, w, h * 0.16)
+  const bottomGrad = ctx.createLinearGradient(0, h, 0, h * 0.84)
+  bottomGrad.addColorStop(0, 'rgba(255,255,255,0.35)')
+  bottomGrad.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = bottomGrad
+  ctx.fillRect(0, h * 0.84, w, h * 0.16)
+
+  const tex = new THREE.CanvasTexture(canvas)
+  planetTextureCache.set(hexColor, tex)
+  return tex
+}
+
 /**
  * 创建节点对象：星球（受光照球体 + 自发光）+ 大气光晕（面向相机的 Sprite）
  * @param {object} node - 节点数据
@@ -94,13 +152,17 @@ function createNodeObject(node) {
   const { glowScale, glowOpacity, emissive } = graphConfig.cosmos
 
   const group = new THREE.Group()
-  // 星球本体：受光照 + 自发光，产生明暗面和辉光
+  // 星球本体：受光照 + 自发光 + 程序化地表纹理（大陆/海洋/极地冰盖）
+  const useTexture = graphConfig.cosmos.planetTexture && !dimmed
   const material = new THREE.MeshStandardMaterial({
     color: dimmed ? '#2a3142' : node.color,
     emissive: dimmed ? '#000000' : node.color,
     emissiveIntensity: dimmed ? 0 : emissive,
-    roughness: 0.45,
-    metalness: 0.1,
+    roughness: 0.5,
+    metalness: 0.08,
+    ...(useTexture
+      ? { map: getPlanetTexture(node.color), emissiveMap: getPlanetTexture(node.color) }
+      : {}),
   })
   group.add(new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 32), material))
   // 大气光晕：Sprite 始终面向相机，柔光包边
@@ -119,11 +181,12 @@ function createNodeObject(node) {
 }
 
 /**
- * 搭建宇宙场景：灯光 + 粒子星空 + 远处星云
+ * 搭建宇宙场景：灯光 + 粒子星空 + 银河带 + 星云 + 黑洞
  * @param {THREE.Scene} scene - 3d-force-graph 的场景对象
  */
 function setupCosmos(scene) {
-  const { starCount, starRadius, nebulaCount } = graphConfig.cosmos
+  const { starCount, starRadius, nebulaCount, galaxyBandCount, blackHole } =
+    graphConfig.cosmos
   // 灯光：环境光保证球体可见，定向光打出明暗面（星球立体感）
   scene.add(new THREE.AmbientLight(0xaabbee, 1.1))
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.9)
@@ -131,7 +194,7 @@ function setupCosmos(scene) {
   scene.add(dirLight)
 
   // 星空：两组星点（大量小星 + 少量亮星），球壳随机分布在图谱外围
-  const makeStars = (count, size, opacity) => {
+  const makeStars = (count, size, opacity, color = 0xffffff) => {
     const positions = new Float32Array(count * 3)
     for (let i = 0; i < count; i++) {
       const r = starRadius[0] + Math.random() * (starRadius[1] - starRadius[0])
@@ -147,7 +210,7 @@ function setupCosmos(scene) {
       new THREE.Points(
         geo,
         new THREE.PointsMaterial({
-          color: 0xffffff,
+          color,
           size,
           sizeAttenuation: false, // 星点屏幕大小恒定，像真实星星
           transparent: true,
@@ -160,29 +223,112 @@ function setupCosmos(scene) {
   makeStars(Math.floor(starCount * 0.8), 1.6, 0.8)
   makeStars(Math.floor(starCount * 0.2), 2.6, 0.95)
 
-  // 星云：远处大面积柔光色团（淡紫/蓝/青），制造银河纵深感
+  // 银河带：星点聚集在倾斜圆盘带内，横贯天穹（带微暖色星光）
+  {
+    const positions = new Float32Array(galaxyBandCount * 3)
+    const tilt = Math.PI / 3.2 // 圆盘倾斜角
+    for (let i = 0; i < galaxyBandCount; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const r = 1100 + Math.random() * 400
+      const spread = (Math.random() - 0.5) * 130 // 带厚
+      const x = r * Math.cos(angle)
+      const y = r * Math.sin(angle)
+      // 绕 x 轴旋转整体倾斜，形成斜跨天际的银河带
+      const yy = y * Math.cos(tilt) - spread * Math.sin(tilt)
+      const zz = y * Math.sin(tilt) + spread * Math.cos(tilt)
+      positions[i * 3] = x
+      positions[i * 3 + 1] = yy
+      positions[i * 3 + 2] = zz
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    scene.add(
+      new THREE.Points(
+        geo,
+        new THREE.PointsMaterial({
+          color: 0xffeedd,
+          size: 1.3,
+          sizeAttenuation: false,
+          transparent: true,
+          opacity: 0.5,
+          depthWrite: false,
+        })
+      )
+    )
+  }
+
+  // 星云：双层 Sprite（外圈大柔光 + 内核亮斑），淡紫/蓝/青
   const nebulaColors = [0x6c5ce7, 0x45b7d1, 0x4ecdc4, 0xa55eea, 0x34495e, 0x2c3e87]
   for (let i = 0; i < nebulaCount; i++) {
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: getGlowTexture(),
-        color: nebulaColors[i % nebulaColors.length],
-        transparent: true,
-        opacity: 0.06 + Math.random() * 0.05,
-        depthWrite: false,
-      })
-    )
+    const color = nebulaColors[i % nebulaColors.length]
     const r = 900 + Math.random() * 500
     const theta = Math.random() * Math.PI * 2
     const phi = Math.acos(2 * Math.random() - 1)
-    sprite.position.set(
+    const pos = [
       r * Math.sin(phi) * Math.cos(theta),
       r * Math.sin(phi) * Math.sin(theta),
-      r * Math.cos(phi)
+      r * Math.cos(phi),
+    ]
+    // 外圈柔光
+    const outer = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: getGlowTexture(),
+        color,
+        transparent: true,
+        opacity: 0.07 + Math.random() * 0.05,
+        depthWrite: false,
+      })
     )
+    outer.position.set(...pos)
     const s = 500 + Math.random() * 600
-    sprite.scale.set(s, s, 1)
-    scene.add(sprite)
+    outer.scale.set(s, s, 1)
+    scene.add(outer)
+    // 内核亮斑（星云的发光核心）
+    const core = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: getGlowTexture(),
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.1 + Math.random() * 0.06,
+        depthWrite: false,
+      })
+    )
+    core.position.set(pos[0] * 0.98, pos[1] * 0.98, pos[2] * 0.98)
+    core.scale.set(s * 0.35, s * 0.35, 1)
+    scene.add(core)
+  }
+
+  // 黑洞：纯黑球体 + 倾斜发光吸积盘 + 辉光
+  if (blackHole) {
+    const bh = new THREE.Group()
+    // 事件视界
+    bh.add(
+      new THREE.Mesh(
+        new THREE.SphereGeometry(blackHole.size, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+      )
+    )
+    // 吸积盘：橙色发光圆环，倾斜视角更有立体感
+    const disk = new THREE.Mesh(
+      new THREE.TorusGeometry(blackHole.size * 2.1, blackHole.size * 0.42, 24, 64),
+      new THREE.MeshBasicMaterial({ color: 0xffaa55, transparent: true, opacity: 0.9 })
+    )
+    disk.rotation.x = Math.PI / 2.4
+    bh.add(disk)
+    // 吸积盘辉光
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: getGlowTexture(),
+        color: 0xffb060,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false,
+      })
+    )
+    glow.scale.set(blackHole.size * 7, blackHole.size * 7, 1)
+    bh.add(glow)
+    bh.position.set(...blackHole.position)
+    scene.add(bh)
   }
 }
 
