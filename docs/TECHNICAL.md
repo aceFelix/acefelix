@@ -1,6 +1,6 @@
 # AceFelix 知识图谱 · 技术文档
 
-> 版本：0.1.0 ｜ 更新日期：2026-08-22
+> 版本：0.1.0 ｜ 更新日期：2026-08-23
 > 本文面向开发者，详述核心实现机制与关键代码路径。
 
 ## 1. 数据模型
@@ -200,7 +200,52 @@ def upload_file(file: UploadFile = File(...)):
 - 详情面板 `isImageUrl(val)` 判断属性值，自动渲染为 `<img>`
 - 存储的是 URL 字符串（而非 base64），避免撑爆 `graph.json`
 
-## 7. 已知限制
+## 7. MCP Server（Agent 接入）
+
+### 7.1 运行形态
+
+`mcp_server.py` 基于官方 mcp SDK 的 **FastMCP**，以 **stdio transport** 运行：
+客户端（jarvis 等）在需要时拉起子进程，通过 stdin/stdout 的 JSON-RPC 通信。
+与 `api.py`（HTTP REST）**共享同一个 `KnowledgeGraph` 引擎与 `data/graph.json`**。
+
+```python
+# mcp_server.py
+kg = KnowledgeGraph(str(DATA_PATH))   # 与 api.py 相同的 data 文件
+mcp = FastMCP("acefelix-knowledge", instructions=...)
+@mcp.tool()
+def get_profile(max_items: int = 15) -> str:
+    ...
+if __name__ == "__main__":
+    mcp.run(transport="stdio")
+```
+
+### 7.2 工具清单
+
+| 类别 | 工具 | 说明 |
+|---|---|---|
+| 画像 | `get_profile` | 以 Person 实体为中心聚合一跳关联，输出紧凑画像 |
+| 查询 | `search_entity` / `get_entity` / `list_entities` | 实体搜索与详情 |
+| 图查询 | `get_neighbors` / `find_paths` / `common_neighbors` | 邻居/路径/共同邻居 |
+| 元数据 | `get_stats` / `list_types` / `list_relation_types` | 统计与类型表 |
+| 写入 | `add_entity` / `add_relation` | 新增实体/关系，复用引擎的乐观锁与备份 |
+
+### 7.3 权限模型
+
+MCP 协议层面工具**没有只读/写入标记**，权限由客户端侧控制：
+
+- jarvis 的 `MCPToolWrapper.check_permissions` 默认返回 `ASK`（外部进程调用需用户确认）
+- 本 server 的写工具（`add_entity` / `add_relation`）在 jarvis 侧自然走"需确认"流程
+- 只读工具（查询类）不修改数据，客户端可放行
+
+### 7.4 多进程并发说明
+
+`api.py` 与 `mcp_server.py` 是**两个独立进程**，可能同时读写 `graph.json`：
+
+- `KnowledgeGraph._write_lock` 是**进程内**锁，无法跨进程互斥
+- 跨进程安全由**原子写**（`os.replace`，写坏不丢旧数据）+ **乐观锁**（写前校验 version）兜底
+- 个人单用户场景下冲突概率低；若需更强一致性，后续可在存储层替换时统一处理
+
+## 8. 已知限制
 
 | 限制 | 说明 |
 |---|---|
@@ -210,7 +255,7 @@ def upload_file(file: UploadFile = File(...)):
 | 图片无回收 | 删除实体的图片属性不会删除 `uploads/` 里的文件 |
 | 属性整体替换 | 更新实体/关系时 `properties` 为整体替换，非深合并 |
 
-## 8. 演进路线
+## 9. 演进路线
 
 按数据量与并发增长，优先级建议：
 

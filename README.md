@@ -12,6 +12,7 @@
 - **实体管理**：列表展示、类型过滤、名称搜索、增删改查，属性支持**图片 URL 与本地上传**
 - **数据保护**：乐观锁防并发覆盖，每次保存自动滚动备份（保留 20 份），原子写入防损坏
 - **统计信息**：实体数、关系数、类型分布
+- **Agent 接入**：MCP Server 将图谱以标准协议暴露给任意 AI Agent（jarvis、Claude Desktop 等），Agent 可查询画像、搜索实体、探索关联，经确认后新增实体/关系
 
 ## 项目结构
 
@@ -19,6 +20,7 @@
 acefelix/
 ├── backend/                  # Python 后端
 │   ├── api.py                # FastAPI REST 服务（含图片上传、静态资源）
+│   ├── mcp_server.py         # MCP Server（Agent 接入，stdio）
 │   ├── knowledge_graph.py    # 知识图谱核心引擎（CRUD + 查询 + 持久化）
 │   ├── models.py             # 实体/关系数据模型
 │   ├── seed.py               # 种子数据初始化脚本
@@ -27,6 +29,8 @@ acefelix/
 │   │   ├── graph.json        # 图谱数据文件
 │   │   └── backups/          # 滚动备份（保留 20 份）
 │   └── uploads/              # 上传的图片文件
+├── skills/
+│   └── acefelix-knowledge/   # jarvis Skill（图谱使用指引，复制到 ~/.jarvis/skills/）
 ├── frontend/                 # Vue3 前端
 │   ├── src/
 │   │   ├── App.vue           # 主界面（三栏布局 + 右侧详情）
@@ -80,7 +84,16 @@ npm run dev             # 启动开发服务器 http://127.0.0.1:5173
 
 浏览器打开 **http://127.0.0.1:5173/** 即可使用。
 
-### 3. 快速上手
+### 3. 启动 MCP Server（Agent 接入）
+
+```bash
+cd backend
+python mcp_server.py          # 启动 MCP Server，通过 stdio 供 Agent 调用
+```
+
+> 无需单独启动，jarvis 等 Agent 客户端会在需要时自动拉起本进程。
+
+### 4. 快速上手
 
 - 左侧面板管理实体与关系，⚙ 按钮可管理类型
 - 编辑实体时可在「图片属性」粘贴图片 URL 或上传本地图片
@@ -110,8 +123,47 @@ npm run dev             # 启动开发服务器 http://127.0.0.1:5173
 
 完整请求/响应示例见 [docs/API.md](./docs/API.md)，FastAPI 交互文档见 `http://127.0.0.1:8800/docs`。
 
+## Agent 接入
+
+图谱通过 **MCP Server**（[backend/mcp_server.py](./backend/mcp_server.py)）暴露给 AI Agent，
+任何支持 MCP 协议的客户端（jarvis、Claude Desktop、Cursor 等）都能接入。
+
+### jarvis 接入
+
+1. 在 `~/.jarvis/mcp.json` 的 `mcpServers` 中添加：
+
+```json
+"acefelix-knowledge": {
+  "command": "python",
+  "args": ["<项目绝对路径>/backend/mcp_server.py"]
+}
+```
+
+2. 安装 Skill（让 jarvis 知道何时/如何用图谱）：
+
+```bash
+cp -r skills/acefelix-knowledge ~/.jarvis/skills/
+```
+
+3. 重启 jarvis，即可通过 `mcp__acefelix-knowledge__*` 工具查询/维护图谱。
+
+### 其他 Agent
+
+在客户端 MCP 配置中注册同一启动命令即可，工具清单：
+
+| 工具 | 类型 | 说明 |
+|---|---|---|
+| `get_profile` | 只读 | 人物画像摘要（了解用户优先调用） |
+| `search_entity` / `get_entity` / `list_entities` | 只读 | 实体搜索与详情 |
+| `get_neighbors` / `find_paths` / `common_neighbors` | 只读 | 图结构查询 |
+| `get_stats` / `list_types` / `list_relation_types` | 只读 | 统计与类型表 |
+| `add_entity` / `add_relation` | 写入 | 新增实体/关系（客户端默认需用户确认） |
+
+> 数据文件 `backend/data/graph.json` 为本地个人数据，不入库；clone 后运行 `python seed.py` 生成初始图谱。
+
 ## 未来规划
 
-- [ ] 与 JARVIS 联动，让 JARVIS 更懂用户
+- [x] 与 JARVIS 联动，让 JARVIS 更懂用户（MCP Server 接入已完成）
 - [ ] GraphRAG 自动抽取：从聊天记录/文档中自动抽取实体关系
+- [ ] 画像双向同步：会话提炼结果回写图谱，图谱画像注入系统提示
 - [ ] 数据量增大后迁移 SQLite / Kùzu / Neo4j

@@ -3,3 +3,4 @@ uvicorn>=0.29.0
 networkx>=3.2
 pydantic>=2.0
 python-multipart>=0.0.12
+mcp>=1.0.0
