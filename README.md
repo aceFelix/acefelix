@@ -50,6 +50,7 @@ acefelix/
 │   ├── API.md                # REST API 参考
 │   ├── DEPLOYMENT.md         # 部署与运维
 │   └── fixlogs/              # 修复复盘文档
+├── .github/workflows/ci.yml  # GitHub Actions CI（后端测试 + 前端构建）
 └── start.bat                 # Windows 一键启动
 ```
 
