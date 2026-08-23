@@ -1,5 +1,7 @@
 # AceFelix 个人知识图谱
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 基于手动维护数据的个人知识图谱系统，支持实体和关系的增删改查、图结构查询，并提供宇宙银河主题的 3D 可视化展示。
 
 ## 功能特性
@@ -164,7 +166,11 @@ cp -r skills/acefelix-knowledge ~/.jarvis/skills/
 
 ## 未来规划
 
-- [x] 与 JARVIS 联动，让 JARVIS 更懂用户（MCP Server 接入已完成）
+- [ ] 与 JARVIS 联动，让 JARVIS 更懂用户（MCP Server 接入已完成）
 - [ ] GraphRAG 自动抽取：从聊天记录/文档中自动抽取实体关系
 - [ ] 画像双向同步：会话提炼结果回写图谱，图谱画像注入系统提示
 - [ ] 数据量增大后迁移 SQLite / Kùzu / Neo4j
+
+## License
+
+[MIT](./LICENSE) © 2026 aceFelix（许发明）
