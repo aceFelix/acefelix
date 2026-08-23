@@ -6,6 +6,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
+import { API_BASE } from '../config/api.config'
 import TypeManager from './TypeManager.vue'
 
 const props = defineProps({
@@ -154,7 +155,7 @@ async function uploadImage(event) {
     while (properties[key] !== undefined) {
       key = `${base}_${idx++}`
     }
-    setImageProp(key, `http://127.0.0.1:8800${url}`)
+    setImageProp(key, `${API_BASE}${url}`)
   } catch (err) {
     uploadError.value = err.message || '上传失败'
   } finally {
@@ -186,7 +187,7 @@ function isImageUrl(value) {
 function imageSrc(url) {
   if (typeof url !== 'string') return ''
   if (url.startsWith('http')) return url
-  return `http://127.0.0.1:8800${url}`
+  return `${API_BASE}${url}`
 }
 
 /**

@@ -1,6 +1,6 @@
 # AceFelix 知识图谱 · 部署与运维
 
-> 版本：0.1.0 ｜ 更新日期：2026-08-22
+> 版本：0.1.0 ｜ 更新日期：2026-08-23
 
 ## 1. 环境要求
 
@@ -95,6 +95,119 @@ app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="stati
 ```
 
 > 注意：`/uploads` 与 `/api` 路由需先注册，静态 `Mount("/")` 放最后。
+
+### 3.4 部署方式 C：Cloudflare Pages（前端）+ VPS（后端）—— 公网 24h 在线
+
+适合把知识图谱暴露到公网、任何设备可访问编辑。**前端**用 Cloudflare Pages（免费 CDN），
+**后端**跑在自己的 VPS（FastAPI 有状态、需本地文件，无法直接上 Cloudflare）。
+
+```
+浏览器 ──▶ Cloudflare Pages（前端 SPA，全球 CDN）
+                │ HTTPS
+                ▼
+        api.你的域名.com  （Cloudflare Tunnel 或 DNS 解析到 VPS）
+                ▼
+        VPS：uvicorn(FastAPI:8800) + graph.json + uploads/
+```
+
+#### 步骤 1 · 准备 VPS 并部署后端
+
+```bash
+# VPS 上（Ubuntu/Debian 示例）
+sudo apt install python3-venv nginx -y
+git clone https://github.com/aceFelix/acefelix.git && cd acefelix/backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python seed.py          # 初始化图谱数据（首次）
+```
+
+设置环境变量并启动：
+
+```bash
+export ALLOWED_ORIGINS="https://<你的-pages-域名>.pages.dev"   # CORS 放行前端
+nohup python -m uvicorn api:app --host 0.0.0.0 --port 8800 &
+```
+
+长期运行建议用 systemd 守护（重启自拉起）：
+
+```ini
+# /etc/systemd/system/acefelix-kg.service
+[Unit]
+Description=AceFelix Knowledge Graph API
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/acefelix/backend
+Environment=ALLOWED_ORIGINS=https://<你的-pages-域名>.pages.dev
+ExecStart=/opt/acefelix/backend/.venv/bin/python -m uvicorn api:app --host 0.0.0.0 --port 8800
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now acefelix-kg
+```
+
+#### 步骤 2 · 后端暴露公网（二选一）
+
+**方式 A：Cloudflare Tunnel（推荐，不暴露服务器 IP、自动 HTTPS）**
+
+```bash
+# VPS 上安装 cloudflared 并创建隧道指向 8800
+cloudflared tunnel login
+cloudflared tunnel create kg-tunnel
+cloudflared tunnel route dns kg-tunnel api.你的域名.com
+cloudflared tunnel run kg-tunnel   # 需常驻，可配成 systemd 服务
+```
+
+隧道映射：`https://api.你的域名.com → http://127.0.0.1:8800`
+
+**方式 B：域名 A 记录 + Caddy/Nginx 反代**
+
+```nginx
+# Nginx 示例
+server {
+    listen 443 ssl;
+    server_name api.你的域名.com;
+    # ssl_certificate ...  # 用 certbot 申请
+    location / {
+        proxy_pass http://127.0.0.1:8800;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+#### 步骤 3 · 前端部署到 Cloudflare Pages
+
+- **方式一（Git 自动构建）**：GitHub 仓库 → Pages → 连接 `acefelix` 仓库 →
+  构建配置：
+  - Build command：`cd frontend && npm ci && npm run build`
+  - Build output directory：`frontend/dist`
+  - 环境变量：`VITE_API_BASE=https://api.你的域名.com`
+- **方式二（直传）**：本地 `cd frontend && npm run build` 后，Pages Dashboard
+  → Create project → Direct Upload 上传 `dist/` 内容
+
+前端地址配置说明：`frontend/src/config/api.config.js` 读取
+`VITE_API_BASE`（默认 `http://127.0.0.1:8800`），部署时通过 Pages 构建环境变量覆盖。
+
+#### 步骤 4 · 数据备份（VPS 上定时执行）
+
+```bash
+# crontab -e 添加每日备份
+0 3 * * * tar -czf /backup/kg-$(date +\%F).tar.gz /opt/acefelix/backend/data /opt/acefelix/backend/uploads && find /backup -name 'kg-*.tar.gz' -mtime +14 -delete
+```
+
+#### 关键配置小结
+
+| 项 | 位置 | 说明 |
+|---|---|---|
+| 前端 API 地址 | Pages 环境变量 `VITE_API_BASE` | 指向 `https://api.你的域名.com` |
+| 后端 CORS | VPS 环境变量 `ALLOWED_ORIGINS` | 填 Pages 域名（逗号分隔多个） |
+| 图片访问 | 前端自动用 `VITE_API_BASE` 拼 `/uploads/` | 无需额外配置 |
+| 数据/图片 | VPS `backend/data/` + `backend/uploads/` | 必须定时备份 |
 
 ---
 

@@ -1,10 +1,13 @@
 /**
  * API 请求封装
  * 统一管理与后端 FastAPI 的通信，提供知识图谱 CRUD 接口。
+ * 后端地址来自 config/api.config.js（VITE_API_BASE 可覆盖）。
  * @author aceFelix
  */
 
-const BASE_URL = 'http://127.0.0.1:8800/api'
+import { API_BASE } from '../config/api.config'
+
+const BASE_URL = `${API_BASE}/api`
 
 /**
  * 通用请求封装

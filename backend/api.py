@@ -7,6 +7,7 @@ FastAPI 服务入口
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -25,10 +26,24 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# 跨域支持（前端运行在 5173 端口）
+
+def _cors_origins() -> List[str]:
+    """
+    计算 CORS 允许来源：
+    - 默认：本地开发地址（Vite 5173）
+    - 部署：通过环境变量 ALLOWED_ORIGINS 覆盖（逗号分隔，如
+      "https://kg.pages.dev,https://kg.example.com"）
+    """
+    raw = os.environ.get("ALLOWED_ORIGINS", "")
+    if raw.strip():
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+
+# 跨域支持（本地默认放行 5173；生产环境用 ALLOWED_ORIGINS 指定前端域名）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

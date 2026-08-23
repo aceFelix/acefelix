@@ -6,6 +6,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from './api'
+import { API_BASE } from './config/api.config'
 import Graph3D from './components/Graph3D.vue'
 import EntityPanel from './components/EntityPanel.vue'
 import RelationPanel from './components/RelationPanel.vue'
@@ -122,7 +123,7 @@ function isImageUrl(value) {
  */
 function imageSrc(url) {
   if (url.startsWith('http')) return url
-  return `http://127.0.0.1:8800${url}`
+  return `${API_BASE}${url}`
 }
 
 onMounted(() => init())
