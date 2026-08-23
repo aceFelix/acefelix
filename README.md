@@ -1,6 +1,12 @@
 # AceFelix 个人知识图谱
 
+[![CI](https://github.com/aceFelix/acefelix/actions/workflows/ci.yml/badge.svg)](https://github.com/aceFelix/acefelix/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Node](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vue](https://img.shields.io/badge/Vue.js-3-42b883?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![MCP](https://img.shields.io/badge/MCP-Server-5c6bc0)](https://modelcontextprotocol.io/)
 
 基于手动维护数据的个人知识图谱系统，支持实体和关系的增删改查、图结构查询，并提供宇宙银河主题的 3D 可视化展示。
 
@@ -173,4 +179,4 @@ cp -r skills/acefelix-knowledge ~/.jarvis/skills/
 
 ## License
 
-[MIT](./LICENSE) © 2026 aceFelix（许发明）
+[MIT](./LICENSE) © 2026 aceFelix
