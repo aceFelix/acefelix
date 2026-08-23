@@ -172,10 +172,14 @@ cp -r skills/acefelix-knowledge ~/.jarvis/skills/
 
 ## 未来规划
 
-- [ ] 与 JARVIS 联动，让 JARVIS 更懂用户（MCP Server 接入已完成）
-- [ ] GraphRAG 自动抽取：从聊天记录/文档中自动抽取实体关系
-- [ ] 画像双向同步：会话提炼结果回写图谱，图谱画像注入系统提示
-- [ ] 数据量增大后迁移 SQLite / Kùzu / Neo4j
+> 完整升级计划书（技术选型与实现思路）见 [docs/plans/upgrade-plan.md](./docs/plans/upgrade-plan.md)
+
+- [x] 与 JARVIS 联动，让 JARVIS 更懂用户（MCP Server 接入已完成）
+- [ ] P1 GraphRAG 自动抽取：从聊天记录/文档中自动抽取实体关系
+- [ ] P2 画像双向同步：会话提炼结果回写图谱，图谱画像注入系统提示
+- [ ] P3 语义检索：embedding 语义搜索替代关键词匹配
+- [ ] P4 关联推荐：相似实体与潜在兴趣推荐
+- [ ] P5 数据量增大后迁移 SQLite / Kùzu / Neo4j
 
 ## License
 
