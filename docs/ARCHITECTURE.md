@@ -66,7 +66,7 @@ AceFelix 是一个**个人知识图谱系统**，帮助个人以图结构组织�
 | 图引擎 | NetworkX | >= 3.2 | 内存图模型，提供遍历/路径算法 |
 | 数据校验 | Pydantic | >= 2.0 | 请求/响应模型 |
 | 文件上传 | python-multipart | >= 0.0.12 | `UploadFile` 依赖 |
-| Agent 接入 | mcp | >= 1.0 | MCP SDK（FastMCP，stdio transport） |
+| Agent 接入 | mcp | >= 1.28,<2.0 | MCP SDK（FastMCP，stdio transport；2.0 重构了 fastmcp 位置故锁 1.x） |
 | 前端框架 | Vue 3 | ^3.4 | 组合式 API |
 | 构建工具 | Vite | ^5.4 | 开发服务器 + 生产构建 |
 | 3D 渲染 | 3d-force-graph | ^1.73 | 力导向 3D 图（基于 Three.js） |
