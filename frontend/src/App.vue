@@ -4,9 +4,11 @@
   @author aceFelix
 -->
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from './api'
 import { API_BASE } from './config/api.config'
+import { nameCompare } from './utils/sort'
+import { isImageProp, isWebUrl } from './utils/property'
 import Graph3D from './components/Graph3D.vue'
 import EntityPanel from './components/EntityPanel.vue'
 import RelationPanel from './components/RelationPanel.vue'
@@ -21,6 +23,11 @@ const graphVersion = ref(1) // 数据版本号（乐观锁）
 
 // 数据
 const entities = ref([])
+
+// 按首字母排序的实体列表（供关系面板的源/目标实体下拉框展示，中文拼音序）
+const sortedEntities = computed(() =>
+  entities.value.slice().sort((a, b) => nameCompare(a.name, b.name))
+)
 
 // 交互状态
 const selectedEntityId = ref('')
@@ -82,6 +89,16 @@ async function onSelectEntity(id) {
 }
 
 /**
+ * 关闭右侧详情面板，同时清空选中实体状态，
+ * 保证关闭后左侧列表项不再残留高亮选中样式（选中态与详情面板双向同步）
+ */
+function closeDetail() {
+  showDetail.value = false
+  selectedEntityId.value = ''
+  selectedEntity.value = null
+}
+
+/**
  * 刷新所有数据（含元数据，覆盖类型变更场景）
  */
 async function refreshAll() {
@@ -111,11 +128,18 @@ async function doSearch() {
 }
 
 /**
- * 判断属性值是否为图片 URL
+ * 判断属性值是否为图片链接：按键名语义 + URL 特征识别，
+ * 避免 website 等普通链接被误判成图片（识别规则见 utils/property.js）
  */
-function isImageUrl(value) {
-  if (typeof value !== 'string') return false
-  return /^https?:\/\//i.test(value) || value.startsWith('/uploads/')
+function isImage(key, value) {
+  return isImageProp(key, value)
+}
+
+/**
+ * 判断属性值是否为网站链接（非图片的 http 地址，详情中渲染为可点击链接）
+ */
+function isLink(key, value) {
+  return isWebUrl(key, value)
 }
 
 /**
@@ -179,7 +203,7 @@ onMounted(() => init())
             ref="relationPanelRef"
             :relation-types="relationTypes"
             :relation-type-labels="relationTypeLabels"
-            :entities="entities"
+            :entities="sortedEntities"
             :graph-version="graphVersion"
             @refresh="refreshAll"
           />
@@ -204,7 +228,7 @@ onMounted(() => init())
               <h2>{{ selectedEntity.name }}</h2>
               <span class="tag" :style="{ background: (selectedEntity.color || entityColors[selectedEntity.type] || '#888') + '33', color: selectedEntity.color || entityColors[selectedEntity.type] || '#888' }">{{ selectedEntity.type }}</span>
             </div>
-            <button class="icon-btn" @click="showDetail = false">✕</button>
+            <button class="icon-btn" @click="closeDetail">✕</button>
           </div>
           <div class="detail-body" v-if="selectedEntity.properties">
             <div class="prop-section">
@@ -212,11 +236,12 @@ onMounted(() => init())
               <div class="prop-list">
                 <div class="prop-item" v-for="(val, key) in selectedEntity.properties" :key="key">
                   <span class="prop-key">{{ key }}</span>
-                  <template v-if="isImageUrl(val)">
+                  <template v-if="isImage(key, val)">
                     <a :href="imageSrc(val)" target="_blank" class="prop-image-link">
                       <img :src="imageSrc(val)" class="prop-image" />
                     </a>
                   </template>
+                  <a v-else-if="isLink(key, val)" :href="val" target="_blank" class="prop-val prop-link">{{ val }}</a>
                   <span v-else class="prop-val">{{ val }}</span>
                 </div>
               </div>
@@ -397,6 +422,16 @@ onMounted(() => init())
 .prop-image-link {
   display: block;
   max-width: 180px;
+}
+/* 网站链接类属性（如 website）：可点击新窗口打开 */
+.prop-link {
+  color: var(--accent, #4ecdc4);
+  text-decoration: none;
+  word-break: break-all;
+  text-align: right;
+}
+.prop-link:hover {
+  text-decoration: underline;
 }
 .prop-image {
   max-width: 100%;
