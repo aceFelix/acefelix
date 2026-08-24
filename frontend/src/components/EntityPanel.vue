@@ -7,6 +7,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
 import { API_BASE } from '../config/api.config'
+import { nameCompare } from '../utils/sort'
+import { isImageProp } from '../utils/property'
 import TypeManager from './TypeManager.vue'
 
 const props = defineProps({
@@ -61,7 +63,9 @@ const filteredEntities = computed(() => {
     const q = searchQuery.value.toLowerCase()
     result = result.filter((e) => e.name.toLowerCase().includes(q))
   }
-  return result
+  // 按名称首字母排序展示（中文拼音序），过滤/搜索后仍保持有序；
+  // slice 避免 sort 直接改动响应式源数组
+  return result.slice().sort((a, b) => nameCompare(a.name, b.name))
 })
 
 /**
@@ -174,14 +178,6 @@ function removeImageProp(key) {
 }
 
 /**
- * 判断属性值是否为图片 URL
- */
-function isImageUrl(value) {
-  if (typeof value !== 'string') return false
-  return /^https?:\/\//i.test(value) || value.startsWith('/uploads/')
-}
-
-/**
  * 补全图片地址（相对路径补成后端绝对 URL）
  */
 function imageSrc(url) {
@@ -191,12 +187,13 @@ function imageSrc(url) {
 }
 
 /**
- * 当前 JSON 中的图片属性列表
+ * 当前 JSON 中的图片属性列表：按键名语义 + URL 特征识别，
+ * 避免 website 等普通链接被误判成图片（识别规则见 utils/property.js）
  */
 const imagePropsList = computed(() => {
   const properties = getProperties()
   return Object.entries(properties)
-    .filter(([, value]) => isImageUrl(value))
+    .filter(([key, value]) => isImageProp(key, value))
     .map(([key, value]) => ({ key, value }))
 })
 

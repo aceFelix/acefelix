@@ -6,6 +6,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
+import { nameCompare } from '../utils/sort'
 import RelationTypeManager from './RelationTypeManager.vue'
 
 const props = defineProps({
@@ -51,8 +52,16 @@ const entityMap = computed(() => {
 })
 
 const filteredRelations = computed(() => {
-  if (!filterType.value) return relations.value
-  return relations.value.filter((r) => r.type === filterType.value)
+  const result = filterType.value
+    ? relations.value.filter((r) => r.type === filterType.value)
+    : relations.value
+  // 按首字母排序：先比源实体名，同名再比目标实体名（中文拼音序）；
+  // slice 避免 sort 直接改动响应式源数组
+  return result.slice().sort((a, b) => {
+    const bySource = nameCompare(entityMap.value[a.source], entityMap.value[b.source])
+    if (bySource !== 0) return bySource
+    return nameCompare(entityMap.value[a.target], entityMap.value[b.target])
+  })
 })
 
 /**

@@ -176,6 +176,14 @@ for hops in range(1, max_hops + 1):
 - **重置**：清空高亮
 - 高亮时通过 `nodeColor` / `linkColor` 返回新函数引用强制 Kapsule 重绘（修复过函数引用相同导致的重绘失效）
 
+### 5.4 面板列表排序
+
+实体/关系列表统一按**名称首字母升序**展示，排序规则收口在 `src/utils/sort.js` 的 `nameCompare`：
+
+- `localeCompare(locale: 'zh-Hans-CN-u-co-pinyin')`：中文按拼音序，英文不区分大小写，数字自然序（`numeric: true`）
+- 实体面板：按实体名排序；关系面板：先比源实体名、同名再比目标实体名
+- 排序发生在 `computed` 内且先 `slice()`，不改动响应式源数组；类型过滤/搜索后仍保持有序
+
 ## 6. 图片上传
 
 ### 6.1 后端
@@ -197,7 +205,7 @@ def upload_file(file: UploadFile = File(...)):
 
 - `api.uploadFile(file)` 使用 `FormData` 上传（不能走通用 JSON request）
 - 编辑弹窗「图片属性」区：URL 粘贴添加 / 本地文件上传
-- 详情面板 `isImageUrl(val)` 判断属性值，自动渲染为 `<img>`
+- 详情面板按 `utils/property.js` 的 `isImageProp(key, val)` 判断属性值：图片渲染为 `<img>`，普通网站链接（如 `website`）渲染为可点击 `<a>`；识别规则 = `/uploads/` 目录 ∨ 图片语义键名（image/avatar/logo…）∨ 图片扩展名兜底
 - 存储的是 URL 字符串（而非 base64），避免撑爆 `graph.json`
 
 ## 7. MCP Server（Agent 接入）
