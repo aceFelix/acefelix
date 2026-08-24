@@ -7,29 +7,29 @@ export const graphConfig = {
   // ---------- 节点外观 ----------
   node: {
     /** 无连接节点的基础半径 */
-    baseRadius: 9.0,
+    baseRadius: 10.0,
     /** 每多一条连接，半径增加量 */
-    radiusPerDegree: 0.7,
+    radiusPerDegree: 0.9,
     /** 视觉半径上限（防止中心大节点吞噬画面） */
-    maxRadius: 15.0,
+    maxRadius: 30.0,
     /** 力导向布局中，每条连接增加的"质量"（影响力学，不影响视觉大小） */
     valPerDegree: 0.25,
     /** 布局质量上限 */
-    maxVal: 4,
+    maxVal: 5,
   },
 
   // ---------- 力导向布局 ----------
   force: {
     /** 节点间斥力（绝对值越大越分散） */
-    chargeStrength: -600,
+    chargeStrength: -570,
     /** 连线理想长度 */
     linkDistance: 100,
     /** 碰撞检测时，在球体半径外额外保留的边距（防标签贴脸） */
     collidePadding: 3,
     /** 布局演算轮数（越多越充分，但首屏等待越长） */
-    cooldownTicks: 400,
+    cooldownTicks: 450,
     /** alpha 衰减速度（越小布局收敛越慢、越充分） */
-    alphaDecay: 0.01,
+    alphaDecay: 0.05,
   },
 
   // ---------- 相机 ----------
@@ -61,7 +61,7 @@ export const graphConfig = {
     /** 行星缓慢自转开关（斑纹随时间流动，增强真实感） */
     planetSpin: true,
     /** 星球光晕尺寸 = 球体半径 × 该倍数 */
-    glowScale: 3.5,
+    glowScale: 3.0,
     /** 光晕透明度（0~1） */
     glowOpacity: 0.5,
     /** 星球自发光强度（调低可让定向光的明暗晨昏线更清晰，行星感更强） */
