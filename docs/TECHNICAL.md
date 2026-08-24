@@ -162,7 +162,7 @@ for hops in range(1, max_hops + 1):
 
 | 天体 | 实现 |
 |---|---|
-| 星球节点 | Canvas 程序化生成地表纹理（基底色 + 明暗地形斑块 + 极地冰盖），`MeshStandardMaterial` + 大气光晕 Sprite；同色节点共享纹理缓存 |
+| 星球节点 | Canvas 程序化生成真实行星地表纹理：周期无缝值噪声 + fBm 分形，按颜色种子分派两种风格——气态巨行星（纬度云带 + 湍流扭曲 + 细流纹 + 风暴暗斑亮环）与类地行星（海陆高程 + 地形明暗 + 环形山 + 极地冰盖），叠加横向拉丝流云；`MeshStandardMaterial`（纹理复用为 bumpMap，气态/类地区分粗糙度）+ BackSide Fresnel 大气散射壳 + 外层光晕 Sprite；行星缓慢自转（`planetSpin`）；同色节点共享纹理缓存 |
 | 星空 | 两层粒子球壳（小星 + 亮星），`sizeAttenuation: false` 保持屏幕恒定大小 |
 | 银河 | 中心核球（发黄白）+ 4 条对数螺旋旋臂（蓝白/暖白渐变），整体倾斜，`vertexColors + AdditiveBlending` |
 | 黑洞 | 事件视界黑球 + 双层吸积盘（Canvas 径向渐变 + 湍流纹理）+ 引力透镜光环（TubeGeometry）+ 螺旋吸积粒子流 + 辉光 |
