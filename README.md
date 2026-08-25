@@ -44,8 +44,9 @@ acefelix/
 │   │   ├── App.vue           # 主界面（三栏布局 + 右侧详情）
 │   │   ├── api/index.js      # API 请求封装
 │   │   ├── config/graph.config.js  # 3D 与宇宙主题参数
+│   │   ├── utils/            # 公共工具（排序/属性识别/行星纹理/宇宙场景/相机/标签层）
 │   │   └── components/
-│   │       ├── Graph3D.vue            # 3D 可视化（星球/星空/银河/黑洞/星云）
+│   │       ├── Graph3D.vue            # 3D 可视化渲染骨架（交互编排，场景/纹理/相机/标签拆分至 utils）
 │   │       ├── EntityPanel.vue        # 实体管理面板（含图片属性）
 │   │       ├── RelationPanel.vue      # 关系管理面板
 │   │       ├── TypeManager.vue        # 实体类型管理

@@ -12,6 +12,11 @@ import * as THREE from 'three'
 import { forceCollide } from 'd3-force-3d'
 import { api } from '../api'
 import { graphConfig } from '../config/graph.config'
+// 拆分出的独立模块：行星纹理 / 宇宙场景 / 相机控制 / 标签覆盖层
+import { getPlanetTexture, createAtmosphereShell } from '../utils/planetTexture'
+import { setupCosmos, getGlowTexture } from '../utils/cosmos'
+import { autoFitCamera, focusCamera } from '../utils/graphCamera'
+import { createLabelLayer } from '../utils/labelLayer'
 
 const props = defineProps({
   // 搜索高亮的实体名称
@@ -39,19 +44,25 @@ const pathPick = ref(null) // 路径选择状态 { stage: 'start' | 'end', start
 const pathResult = ref(null) // 路径查询结果（面板显示）
 const pathHint = ref('') // 路径模式操作提示
 
-// 节点 HTML 标签层相关
-let labelLayer = null // 覆盖在 canvas 上的标签容器
-const labelEls = new Map() // nodeId -> { el: HTMLDivElement, node: object }
-let rafId = null // rAF 循环句柄
-const projVec = new THREE.Vector3() // 投影复用向量，避免每帧创建对象
+// 节点标签覆盖层：投影定位 + rAF 循环（循环内顺带驱动行星自转）
 // 自转中的行星网格列表：节点每次重建前清空，随标签投影循环逐帧推进角度
 const spinMeshes = []
+const labelLayer = createLabelLayer(
+  () => containerRef.value,
+  {
+    onClick: (node) => onGraphNodeClick(node),
+    getCamera: () => graphInstance?.camera(),
+    getViewport: () => ({
+      width: graphInstance?.width() || 0,
+      height: graphInstance?.height() || 0,
+    }),
+    isDimmed: (nodeId) => hlNodes.value.size > 0 && !hlNodes.value.has(nodeId),
+    onFrame: () => {
+      for (const s of spinMeshes) s.mesh.rotation.y += s.speed
+    },
+  }
+)
 
-/**
- * 构造节点 3D 对象（仅球体，文字标签由 HTML 覆盖层渲染）
- * @param {object} node - 节点数据
- * @returns {THREE.Mesh} 球体 Mesh
- */
 /**
  * 计算节点视觉半径（球体 + 碰撞检测共用）
  * 仅按连接度数自动计算，受 maxRadius 上限约束
@@ -59,389 +70,6 @@ const spinMeshes = []
 function nodeRadius(node) {
   const { baseRadius, radiusPerDegree, maxRadius } = graphConfig.node
   return Math.min(maxRadius, baseRadius + (node.degree || 0) * radiusPerDegree)
-}
-
-// 光晕/星云共用的柔光贴图（canvas 径向渐变，全局复用一份）
-let glowTexture = null
-
-/**
- * 生成径向渐变柔光贴图（中心亮、边缘透明）
- */
-function getGlowTexture() {
-  if (glowTexture) return glowTexture
-  const size = 128
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = size
-  const ctx = canvas.getContext('2d')
-  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  g.addColorStop(0, 'rgba(255,255,255,1)')
-  g.addColorStop(0.25, 'rgba(255,255,255,0.55)')
-  g.addColorStop(0.6, 'rgba(255,255,255,0.12)')
-  g.addColorStop(1, 'rgba(255,255,255,0)')
-  ctx.fillStyle = g
-  ctx.fillRect(0, 0, size, size)
-  glowTexture = new THREE.CanvasTexture(canvas)
-  return glowTexture
-}
-
-// 吸积盘纹理缓存
-let accretionTexture = null
-/**
- * 生成黑洞吸积盘纹理：内圈被视界遮挡，向外逐渐发亮，外缘渐暗
- */
-function getAccretionTexture() {
-  if (accretionTexture) return accretionTexture
-  const size = 512
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = size
-  const ctx = canvas.getContext('2d')
-  const cx = size / 2
-  const g = ctx.createRadialGradient(cx, cx, size * 0.18, cx, cx, size * 0.5)
-  g.addColorStop(0, 'rgba(0,0,0,0)')
-  g.addColorStop(0.22, 'rgba(255,210,130,0.85)')
-  g.addColorStop(0.32, 'rgba(255,170,70,0.95)')
-  g.addColorStop(0.45, 'rgba(255,120,40,0.8)')
-  g.addColorStop(0.65, 'rgba(160,60,15,0.35)')
-  g.addColorStop(1, 'rgba(0,0,0,0)')
-  ctx.fillStyle = g
-  ctx.fillRect(0, 0, size, size)
-  // 高温湍流纹理
-  for (let i = 0; i < 80; i++) {
-    const angle = Math.random() * Math.PI * 2
-    const r = size * 0.22 + Math.random() * size * 0.22
-    const len = 0.1 + Math.random() * 0.35
-    ctx.strokeStyle = `rgba(255,250,220,${0.08 + Math.random() * 0.18})`
-    ctx.lineWidth = 1 + Math.random() * 2.5
-    ctx.beginPath()
-    ctx.arc(cx, cx, r, angle, angle + len)
-    ctx.stroke()
-  }
-  accretionTexture = new THREE.CanvasTexture(canvas)
-  return accretionTexture
-}
-
-// 星云纹理缓存（按颜色区分）
-const nebulaTextureCache = new Map()
-/**
- * 生成絮状云雾星云纹理：多色 blob 叠加 + 亮星点缀
- */
-function getNebulaTexture(baseHex) {
-  if (nebulaTextureCache.has(baseHex)) return nebulaTextureCache.get(baseHex)
-  const size = 512
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = size
-  const ctx = canvas.getContext('2d')
-  const base = new THREE.Color(baseHex)
-  const cx = size / 2
-  const cy = size / 2
-  const maxR = size * 0.42
-  ctx.clearRect(0, 0, size, size)
-  // 随机 blob 叠加出絮状云气（限制在中心圆盘内）
-  for (let i = 0; i < 35; i++) {
-    const rr = Math.sqrt(Math.random()) * maxR
-    const a = Math.random() * Math.PI * 2
-    const x = cx + rr * Math.cos(a)
-    const y = cy + rr * Math.sin(a)
-    const r = 30 + Math.random() * 120
-    const alpha = 0.05 + Math.random() * 0.14
-    const c = base.clone().offsetHSL(
-      (Math.random() - 0.5) * 0.12,
-      (Math.random() - 0.5) * 0.25,
-      (Math.random() - 0.5) * 0.18
-    )
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r)
-    g.addColorStop(0, `rgba(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0},${alpha})`)
-    g.addColorStop(1, `rgba(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0},0)`)
-    ctx.fillStyle = g
-    ctx.fillRect(0, 0, size, size)
-  }
-  // 星形成区亮点
-  for (let i = 0; i < 16; i++) {
-    const rr = Math.sqrt(Math.random()) * maxR
-    const a = Math.random() * Math.PI * 2
-    const x = cx + rr * Math.cos(a)
-    const y = cy + rr * Math.sin(a)
-    const r = 3 + Math.random() * 14
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r)
-    g.addColorStop(0, 'rgba(255,255,255,0.9)')
-    g.addColorStop(0.4, 'rgba(255,255,255,0.25)')
-    g.addColorStop(1, 'rgba(255,255,255,0)')
-    ctx.fillStyle = g
-    ctx.fillRect(0, 0, size, size)
-  }
-  // 圆形边缘遮罩：消除方形纹理硬边，让星云自然融入深空
-  ctx.globalCompositeOperation = 'destination-in'
-  const mask = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.48)
-  mask.addColorStop(0, 'rgba(255,255,255,1)')
-  mask.addColorStop(0.7, 'rgba(255,255,255,0.9)')
-  mask.addColorStop(1, 'rgba(255,255,255,0)')
-  ctx.fillStyle = mask
-  ctx.fillRect(0, 0, size, size)
-  ctx.globalCompositeOperation = 'source-over'
-
-  const tex = new THREE.CanvasTexture(canvas)
-  nebulaTextureCache.set(baseHex, tex)
-  return tex
-}
-
-// 星球地表纹理缓存（同色节点共享一张贴图）
-const planetTextureCache = new Map()
-
-/**
- * 种子化格点值噪声 + fBm 多倍频叠加（行星地表纹理用）
- * period 参数让噪声在水平方向按整数周期无缝循环，
- * 贴到球面后经度 0°/360° 接缝处不可见，避免星球出现一条竖缝
- * @param {number} seed - 随机种子（取自节点颜色，同色星球地表一致）
- * @returns {function(number, number, {octaves?:number, period?:number}): number} fbm 噪声，返回 0~1
- */
-function makePlanetNoise(seed) {
-  // 整数格点哈希：同一格点永远返回同一随机值，保证噪声连续
-  const hash = (x, y) => {
-    let n =
-      (Math.imul(x, 374761393) +
-        Math.imul(y, 668265263) +
-        Math.imul(seed | 0, 1442695041)) |
-      0
-    n = (n ^ (n >>> 13)) | 0
-    n = Math.imul(n, 1274126177)
-    return ((n ^ (n >>> 16)) >>> 0) / 4294967296
-  }
-  const smooth = (t) => t * t * (3 - 2 * t)
-  // 双线性插值的格点噪声；period > 0 时水平格点按周期取模实现环绕
-  const noise2 = (x, y, period) => {
-    const xi = Math.floor(x)
-    const yi = Math.floor(y)
-    const xf = x - xi
-    const yf = y - yi
-    let x0 = xi
-    let x1 = xi + 1
-    if (period > 0) {
-      x0 = ((xi % period) + period) % period
-      x1 = (x0 + 1) % period
-    }
-    const a = hash(x0, yi)
-    const b = hash(x1, yi)
-    const c = hash(x0, yi + 1)
-    const d = hash(x1, yi + 1)
-    const u = smooth(xf)
-    const v = smooth(yf)
-    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v
-  }
-  // fBm：多个倍频叠加，细节随倍频翻倍、振幅减半；周期同步翻倍保持无缝
-  return (x, y, { octaves = 4, period = 0 } = {}) => {
-    let sum = 0
-    let amp = 0.5
-    let f = 1
-    let norm = 0
-    for (let i = 0; i < octaves; i++) {
-      sum += noise2(x * f, y * f, period > 0 ? period * f : 0) * amp
-      norm += amp
-      amp *= 0.5
-      f *= 2
-    }
-    return sum / norm
-  }
-}
-
-/**
- * 程序化生成真实行星地表纹理（等距圆柱投影，直接贴到球面）
- * 按颜色种子随机分派两种风格，贴近真实行星的观测特征：
- * - 气态巨行星：纬度云带 + 湍流扭曲 + 沿流向的细流纹 + 风暴暗斑（亮边环）
- * - 类地行星：fBm 高程分海陆 + 地形明暗 + 环形山 + 极地冰盖
- * 两种风格均叠加横向拉丝流云与极地冰盖；水平方向按周期无缝循环
- * @param {string} hexColor - 节点颜色
- * @returns {THREE.CanvasTexture}
- */
-function getPlanetTexture(hexColor) {
-  if (planetTextureCache.has(hexColor)) return planetTextureCache.get(hexColor)
-  const w = 512
-  const h = 256
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')
-
-  // 用颜色字符串做种子的线性同余伪随机（同色星球地表、风格一致）
-  let seed = 0
-  for (const c of hexColor) seed = (seed * 31 + c.charCodeAt(0)) >>> 0
-  const rand = () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0
-    return seed / 4294967296
-  }
-  const fbm = makePlanetNoise(seed)
-  const base = new THREE.Color(hexColor)
-
-  // 风格抽签：约一半为气态条纹行星，其余为类地行星，图谱中星球更多样
-  const gasGiant = rand() > 0.45
-
-  // ---- 气态巨行星参数：云带数量/湍流幅度/云带调色板/风暴斑 ----
-  const bandCount = 7 + Math.floor(rand() * 4)
-  const warpAmp = 0.45 + rand() * 0.55 // 湍流对云带边界的扭曲幅度（云带数单位）
-  const palette = Array.from({ length: 6 }, (_, i) =>
-    base
-      .clone()
-      .offsetHSL(
-        (rand() - 0.5) * 0.08,
-        (rand() - 0.5) * 0.22,
-        (i % 2 === 0 ? 1 : -1) * (0.05 + rand() * 0.11)
-      )
-  )
-  const storms = Array.from({ length: gasGiant ? 1 + Math.floor(rand() * 2) : 0 }, () => ({
-    u: rand(),
-    v: 0.22 + rand() * 0.56,
-    ru: 0.045 + rand() * 0.05, // 横向半径（经度占比）
-    rv: 0.028 + rand() * 0.035, // 纵向半径（纬度占比）
-    core: base.clone().offsetHSL(rand() > 0.5 ? 0.045 : -0.04, 0.14, -0.16),
-  }))
-
-  // ---- 类地行星参数：海陆分界高程 + 海洋/陆地配色 ----
-  const seaLevel = 0.46 + rand() * 0.08
-  const ocean = base.clone().offsetHSL(0, 0.06, -0.17)
-  const land = base.clone().offsetHSL(0.025, -0.06, 0.07)
-
-  // 逐像素绘制（全部颜色分量按 0~1 计算，落盘时再乘 255）
-  const img = ctx.createImageData(w, h)
-  const px = img.data
-  for (let y = 0; y < h; y++) {
-    const v = y / h
-    for (let x = 0; x < w; x++) {
-      const u = x / w
-      let r, g, b
-      if (gasGiant) {
-        // 纬度云带：带的位置被湍流扭曲，产生大气流体的搅动感（木星式条纹）
-        const warp = (fbm(u * 6, v * 5, { octaves: 4, period: 6 }) - 0.5) * warpAmp
-        const bandPos = v * bandCount + warp
-        const bi = Math.floor(bandPos)
-        let t = bandPos - bi
-        t = t * t * (3 - 2 * t) // 相邻云带之间平滑过渡，避免硬条纹
-        const p0 = palette[((bi % 6) + 6) % 6]
-        const p1 = palette[(((bi + 1) % 6) + 6) % 6]
-        r = p0.r + (p1.r - p0.r) * t
-        g = p0.g + (p1.g - p0.g) * t
-        b = p0.b + (p1.b - p0.b) * t
-        // 沿云带流向的细流纹：横向拉伸的高频噪声，模拟高速气流
-        const streak = (fbm(u * 22, v * 70, { octaves: 3, period: 22 }) - 0.5) * 0.17
-        r += streak
-        g += streak
-        b += streak
-      } else {
-        // 类地行星：fBm 高程决定海陆，高程差与细节噪声叠加成地形明暗
-        const elev = fbm(u * 4, v * 3, { octaves: 5, period: 4 })
-        const src = elev < seaLevel ? ocean : land
-        const shade =
-          (elev - seaLevel) * 0.55 +
-          (fbm(u * 12, v * 9, { octaves: 3, period: 12 }) - 0.5) * 0.16
-        r = src.r + shade
-        g = src.g + shade
-        b = src.b + shade
-      }
-      // 风暴斑（气态巨行星）：暗色核心 + 外圈亮环，模拟大红斑式巨型涡旋
-      for (const s of storms) {
-        let du = Math.abs(u - s.u)
-        du = Math.min(du, 1 - du) // 经度环绕：跨越接缝的风暴也完整显示
-        const d = (du / s.ru) ** 2 + ((v - s.v) / s.rv) ** 2
-        if (d < 1) {
-          const dd = Math.sqrt(d)
-          const coreAmt = Math.pow(1 - dd, 1.6) * 0.85
-          r += (s.core.r - r) * coreAmt
-          g += (s.core.g - g) * coreAmt
-          b += (s.core.b - b) * coreAmt
-          // 风暴边缘的抬升亮环（约 72% 半径以外）
-          if (dd > 0.72) {
-            const rim = ((dd - 0.72) / 0.28) * 0.2
-            r += rim
-            g += rim
-            b += rim
-          }
-        }
-      }
-      // 极地冰盖：边界带噪声抖动（非直线），向极点逐渐泛白
-      const jitter = (fbm(u * 10, 0.37, { octaves: 2, period: 10 }) - 0.5) * 0.035
-      const capTop = 0.055 + jitter
-      const capBottom = 0.945 - jitter
-      if (v < capTop) {
-        const m = ((capTop - v) / capTop) * 0.75
-        r += (1 - r) * m
-        g += (1 - g) * m
-        b += (1 - b) * m
-      } else if (v > capBottom) {
-        const m = ((v - capBottom) / (1 - capBottom)) * 0.75
-        r += (1 - r) * m
-        g += (1 - g) * m
-        b += (1 - b) * m
-      }
-      // 稀薄流云：横向拉丝的白色云系浮于地表之上（两种风格共用）
-      const cloud = fbm(u * 8 + 3.7, v * 26, { octaves: 4, period: 8 })
-      if (cloud > 0.56) {
-        const ca = ((cloud - 0.56) / 0.44) * 0.42
-        r += (1 - r) * ca
-        g += (1 - g) * ca
-        b += (1 - b) * ca
-      }
-      const i = (y * w + x) * 4
-      px[i] = Math.min(255, Math.max(0, r * 255))
-      px[i + 1] = Math.min(255, Math.max(0, g * 255))
-      px[i + 2] = Math.min(255, Math.max(0, b * 255))
-      px[i + 3] = 255
-    }
-  }
-  ctx.putImageData(img, 0, 0)
-
-  // 环形山：暗心 + 亮缘的圆形陨坑（仅类地行星，Canvas 叠加即可）
-  if (!gasGiant) {
-    for (let i = 0; i < 16; i++) {
-      const cx = rand() * w
-      const cy = h * (0.14 + rand() * 0.72)
-      const cr = 2 + rand() * 6
-      const g = ctx.createRadialGradient(cx, cy, cr * 0.15, cx, cy, cr)
-      g.addColorStop(0, 'rgba(0,0,0,0.30)')
-      g.addColorStop(0.72, 'rgba(0,0,0,0.08)')
-      g.addColorStop(1, 'rgba(255,255,255,0.16)')
-      ctx.fillStyle = g
-      ctx.beginPath()
-      ctx.arc(cx, cy, cr, 0, Math.PI * 2)
-      ctx.fill()
-    }
-  }
-
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.colorSpace = THREE.SRGBColorSpace // 保证颜色按 sRGB 正确显示，不发灰
-  tex.wrapS = THREE.RepeatWrapping
-  tex.userData = { gasGiant } // 供材质按风格区分粗糙度等参数
-  planetTextureCache.set(hexColor, tex)
-  return tex
-}
-
-/**
- * 创建大气散射壳：略大于球体的 BackSide Fresnel 辉光球，
- * 视线越贴近球缘越亮，模拟真实行星大气层的边缘散射光（地球式的蓝色镶边）
- * @param {number} radius - 行星半径
- * @param {string} colorHex - 大气颜色（取节点色）
- * @returns {THREE.Mesh}
- */
-function createAtmosphereShell(radius, colorHex) {
-  const material = new THREE.ShaderMaterial({
-    uniforms: { atmosphereColor: { value: new THREE.Color(colorHex) } },
-    vertexShader: `
-      varying vec3 vNormal;
-      void main() {
-        vNormal = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }`,
-    fragmentShader: `
-      uniform vec3 atmosphereColor;
-      varying vec3 vNormal;
-      void main() {
-        // BackSide 渲染时法线朝内，与视线夹角越小（球缘处）强度越高
-        float intensity = pow(max(0.0, 0.74 - dot(vNormal, vec3(0.0, 0.0, 1.0))), 3.0);
-        gl_FragColor = vec4(atmosphereColor * 1.35, 1.0) * intensity;
-      }`,
-    side: THREE.BackSide,
-    blending: THREE.AdditiveBlending,
-    transparent: true,
-    depthWrite: false,
-  })
-  return new THREE.Mesh(new THREE.SphereGeometry(radius * 1.16, 40, 40), material)
 }
 
 /**
@@ -493,324 +121,6 @@ function createNodeObject(node) {
   glow.scale.set(radius * glowScale, radius * glowScale, 1)
   group.add(glow)
   return group
-}
-
-/**
- * 创建黑洞：事件视界 + 多层吸积盘 + 引力透镜光环 + 螺旋粒子吸积流
- * @param {THREE.Scene} scene
- * @param {object} config
- */
-function createBlackHole(scene, config) {
-  const bh = new THREE.Group()
-  const s = config.size
-
-  // 事件视界：纯黑球体
-  bh.add(
-    new THREE.Mesh(
-      new THREE.SphereGeometry(s, 40, 40),
-      new THREE.MeshBasicMaterial({ color: 0x000000 })
-    )
-  )
-
-  // 主吸积盘：带径向渐变纹理，内暗外亮
-  const accretionTex = getAccretionTexture()
-  const diskMat = new THREE.MeshBasicMaterial({
-    map: accretionTex,
-    transparent: true,
-    opacity: 0.95,
-    side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-  const disk = new THREE.Mesh(new THREE.RingGeometry(s * 1.35, s * 3.4, 96, 1), diskMat)
-  disk.rotation.x = Math.PI / 2.25
-  bh.add(disk)
-
-  // 第二吸积盘：更外侧、更淡，反向微倾，营造多环扭曲
-  const disk2Mat = new THREE.MeshBasicMaterial({
-    map: accretionTex,
-    transparent: true,
-    opacity: 0.4,
-    side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-  const disk2 = new THREE.Mesh(new THREE.RingGeometry(s * 2.9, s * 4.6, 96, 1), disk2Mat)
-  disk2.rotation.x = Math.PI / 2.05
-  disk2.rotation.y = 0.18
-  bh.add(disk2)
-
-  // 引力透镜光环：上下弯曲的亮环（受黑洞引力弯曲的光线）
-  const lensCurve = new THREE.CatmullRomCurve3(
-    Array.from({ length: 80 }, (_, i) => {
-      const t = i / 79
-      const angle = t * Math.PI * 2
-      const r = s * 4.4
-      return new THREE.Vector3(
-        r * Math.cos(angle),
-        r * Math.sin(angle) * 0.38,
-        r * Math.sin(angle) * 0.18
-      )
-    }),
-    true
-  )
-  const lensGeo = new THREE.TubeGeometry(lensCurve, 128, s * 0.1, 8, true)
-  const lensMat = new THREE.MeshBasicMaterial({
-    color: 0xffddaa,
-    transparent: true,
-    opacity: 0.55,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-  const lensRing = new THREE.Mesh(lensGeo, lensMat)
-  lensRing.rotation.x = Math.PI / 2.25
-  bh.add(lensRing)
-
-  // 内侧细光环（更接近视界，更亮）
-  const lensCurve2 = new THREE.CatmullRomCurve3(
-    Array.from({ length: 80 }, (_, i) => {
-      const t = i / 79
-      const angle = t * Math.PI * 2
-      const r = s * 2.8
-      return new THREE.Vector3(
-        r * Math.cos(angle),
-        r * Math.sin(angle) * 0.22,
-        r * Math.sin(angle) * 0.1
-      )
-    }),
-    true
-  )
-  const lensGeo2 = new THREE.TubeGeometry(lensCurve2, 128, s * 0.06, 8, true)
-  const lensMat2 = new THREE.MeshBasicMaterial({
-    color: 0xffeebb,
-    transparent: true,
-    opacity: 0.7,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-  const lensRing2 = new THREE.Mesh(lensGeo2, lensMat2)
-  lensRing2.rotation.x = Math.PI / 2.25
-  bh.add(lensRing2)
-
-  // 吸积粒子流：绕黑洞螺旋下落的亮点
-  const particleCount = 500
-  const pPos = new Float32Array(particleCount * 3)
-  const pAngles = new Float32Array(particleCount)
-  const pRadii = new Float32Array(particleCount)
-  for (let i = 0; i < particleCount; i++) {
-    const angle = Math.random() * Math.PI * 2
-    const r = s * 1.6 + Math.random() * s * 3.0
-    pAngles[i] = angle
-    pRadii[i] = r
-    pPos[i * 3] = r * Math.cos(angle)
-    pPos[i * 3 + 1] = (Math.random() - 0.5) * s * 0.25
-    pPos[i * 3 + 2] = r * Math.sin(angle)
-  }
-  const pGeo = new THREE.BufferGeometry()
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3))
-  const pMat = new THREE.PointsMaterial({
-    color: 0xffcc80,
-    size: 2.0,
-    transparent: true,
-    opacity: 0.85,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-  const particles = new THREE.Points(pGeo, pMat)
-  particles.userData = { angles: pAngles, radii: pRadii }
-  particles.rotation.x = Math.PI / 2.25
-  bh.add(particles)
-
-  // 外层暖色辉光
-  const glow = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: getGlowTexture(),
-      color: 0xffb060,
-      transparent: true,
-      opacity: 0.22,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    })
-  )
-  glow.scale.set(s * 9, s * 9, 1)
-  bh.add(glow)
-
-  bh.position.set(...config.position)
-  scene.add(bh)
-
-  // 黑洞动画循环
-  let rafId
-  function animate() {
-    disk.rotation.z += 0.002
-    disk2.rotation.z -= 0.0012
-    lensRing.rotation.z += 0.0015
-    lensRing2.rotation.z += 0.0022
-    const positions = particles.geometry.attributes.position.array
-    for (let i = 0; i < particleCount; i++) {
-      pAngles[i] += 0.006 / (pRadii[i] / s)
-      pRadii[i] *= 0.9994
-      if (pRadii[i] < s * 1.4) pRadii[i] = s * 4.0
-      positions[i * 3] = pRadii[i] * Math.cos(pAngles[i])
-      positions[i * 3 + 2] = pRadii[i] * Math.sin(pAngles[i])
-    }
-    particles.geometry.attributes.position.needsUpdate = true
-    rafId = requestAnimationFrame(animate)
-  }
-  animate()
-  bh.userData.disposeAnimation = () => cancelAnimationFrame(rafId)
-}
-
-/**
- * 搭建宇宙场景：灯光 + 粒子星空 + 螺旋银河 + 星云 + 黑洞
- * @param {THREE.Scene} scene - 3d-force-graph 的场景对象
- */
-function setupCosmos(scene) {
-  const { starCount, starRadius, nebulaCount, galaxyBandCount, blackHole } =
-    graphConfig.cosmos
-
-  // 灯光：环境光 + 主定向光 + 蓝色补光，营造星球立体感
-  scene.add(new THREE.AmbientLight(0xaabbee, 0.9))
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0)
-  dirLight.position.set(300, 400, 500)
-  scene.add(dirLight)
-  const fillLight = new THREE.DirectionalLight(0x4455aa, 0.35)
-  fillLight.position.set(-400, -200, 300)
-  scene.add(fillLight)
-
-  // 星空：远景小星 + 中景亮星
-  const makeStars = (count, size, opacity, color = 0xffffff, radiusRange = starRadius) => {
-    const positions = new Float32Array(count * 3)
-    for (let i = 0; i < count; i++) {
-      const r = radiusRange[0] + Math.random() * (radiusRange[1] - radiusRange[0])
-      const theta = Math.random() * Math.PI * 2
-      const phi = Math.acos(2 * Math.random() - 1)
-      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta)
-      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
-      positions[i * 3 + 2] = r * Math.cos(phi)
-    }
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    scene.add(
-      new THREE.Points(
-        geo,
-        new THREE.PointsMaterial({
-          color,
-          size,
-          sizeAttenuation: false,
-          transparent: true,
-          opacity,
-          depthWrite: false,
-        })
-      )
-    )
-  }
-  makeStars(Math.floor(starCount * 0.85), 1.4, 0.75, 0xffffff)
-  makeStars(Math.floor(starCount * 0.15), 2.6, 0.95, 0xddeeff)
-
-  // 银河系：螺旋臂 + 中心核球
-  {
-    const positions = []
-    const colors = []
-    const sizes = []
-    const bulgeCount = Math.floor(galaxyBandCount * 0.12)
-    const colorInner = new THREE.Color(0xfff4e0)
-    const colorArm = new THREE.Color(0xcfe8ff)
-    const colorArmWarm = new THREE.Color(0xffe0c0)
-    // 核球：中心密集、发黄白
-    for (let i = 0; i < bulgeCount; i++) {
-      const r = Math.pow(Math.random(), 2) * 220
-      const theta = Math.random() * Math.PI * 2
-      const h = (Math.random() - 0.5) * 60 * (1 - r / 220)
-      positions.push(r * Math.cos(theta), h, r * Math.sin(theta))
-      const c = colorInner.clone().lerp(new THREE.Color(0xffcc80), Math.random() * 0.3)
-      colors.push(c.r, c.g, c.b)
-      sizes.push(2.0 + Math.random() * 2.0)
-    }
-    // 四条旋臂：对数螺旋 + 随机散开
-    const arms = 4
-    const armCount = galaxyBandCount - bulgeCount
-    for (let i = 0; i < armCount; i++) {
-      const arm = i % arms
-      const armOffset = (arm / arms) * Math.PI * 2
-      const t = Math.random() * Math.PI * 3.5
-      const r = 260 + t * 85 + Math.random() * 140
-      const theta = armOffset + t * 0.55 + (Math.random() - 0.5) * 0.5
-      const h = (Math.random() - 0.5) * (40 + r * 0.08)
-      positions.push(r * Math.cos(theta), h, r * Math.sin(theta))
-      const mix = Math.min(1, (r - 260) / 700)
-      const c = colorArm.clone().lerp(colorArmWarm, Math.random() * 0.5).lerp(new THREE.Color(0x88aaff), mix * 0.4)
-      colors.push(c.r, c.g, c.b)
-      sizes.push(1.2 + Math.random() * 1.3)
-    }
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-    geo.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1))
-    const galaxy = new THREE.Points(
-      geo,
-      new THREE.PointsMaterial({
-        size: 1.5,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.8,
-        sizeAttenuation: false,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      })
-    )
-    galaxy.rotation.x = Math.PI / 3.2
-    scene.add(galaxy)
-  }
-
-  // 星云：多色絮状云雾团
-  const nebulaColors = [0x6c5ce7, 0x45b7d1, 0x4ecdc4, 0xa55eea, 0xff6b81, 0x2c3e87, 0x8e44ad]
-  for (let i = 0; i < nebulaCount; i++) {
-    const color = nebulaColors[i % nebulaColors.length]
-    const r = 800 + Math.random() * 600
-    const theta = Math.random() * Math.PI * 2
-    const phi = Math.acos(2 * Math.random() - 1)
-    const pos = new THREE.Vector3(
-      r * Math.sin(phi) * Math.cos(theta),
-      r * Math.sin(phi) * Math.sin(theta),
-      r * Math.cos(phi)
-    )
-    const s = 500 + Math.random() * 700
-    // 主云雾
-    const cloud = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: getNebulaTexture(color),
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.45 + Math.random() * 0.25,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        alphaTest: 0.005,
-      })
-    )
-    cloud.position.copy(pos)
-    cloud.scale.set(s, s, 1)
-    scene.add(cloud)
-    // 淡色外层雾
-    const halo = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: getGlowTexture(),
-        color,
-        transparent: true,
-        opacity: 0.06 + Math.random() * 0.05,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        alphaTest: 0.005,
-      })
-    )
-    halo.position.copy(pos)
-    halo.scale.set(s * 1.8, s * 1.8, 1)
-    scene.add(halo)
-  }
-
-  // 黑洞
-  if (blackHole) {
-    createBlackHole(scene, blackHole)
-  }
 }
 
 /**
@@ -991,81 +301,6 @@ function onGraphNodeClick(node) {
 }
 
 /**
- * 创建节点 HTML 标签覆盖层
- * 每个节点生成一个绝对定位的 div，通过 rAF 每帧投影更新位置
- * @param {Array<object>} nodes - 节点数据数组
- */
-function setupLabelLayer(nodes) {
-  // 首次初始化：创建标签容器（覆盖在 3D canvas 之上）
-  if (!labelLayer) {
-    labelLayer = document.createElement('div')
-    labelLayer.className = 'graph-label-layer'
-    containerRef.value.appendChild(labelLayer)
-  }
-
-  // 清理旧标签
-  labelEls.forEach(({ el }) => el.remove())
-  labelEls.clear()
-
-  // 为每个节点创建标签
-  nodes.forEach((node) => {
-    const el = document.createElement('div')
-    el.className = 'graph-label'
-    el.textContent = node.name
-    el.style.borderColor = node.color
-    // 点击标签等效点击节点：开详情 + 高亮两跳邻域
-    el.addEventListener('click', () => onGraphNodeClick(node))
-    labelLayer.appendChild(el)
-    labelEls.set(node.id, { el, node })
-  })
-
-  // 启动投影更新循环（只启动一次）
-  if (!rafId) {
-    rafId = requestAnimationFrame(updateLabels)
-  }
-}
-
-/**
- * 每帧将节点 3D 坐标投影为屏幕坐标，更新标签位置
- * 相机背后的节点标签隐藏；标签恒定屏幕大小且不被球体遮挡
- */
-function updateLabels() {
-  const camera = graphInstance?.camera()
-  const graphW = graphInstance?.width() || 0
-  const graphH = graphInstance?.height() || 0
-
-  // 行星自转：借用标签投影循环逐帧推进角度，不额外开 rAF
-  for (const s of spinMeshes) s.mesh.rotation.y += s.speed
-
-  if (camera && graphW && graphH) {
-    labelEls.forEach(({ el, node }) => {
-      // 力导向布局未就绪时节点无坐标，暂时隐藏
-      if (typeof node.x === 'undefined') {
-        el.style.visibility = 'hidden'
-        return
-      }
-      // 3D 坐标 -> 相机空间（NDC 坐标）
-      projVec.set(node.x, node.y, node.z)
-      projVec.project(camera)
-      // 相机背后的节点（NDC z > 1）隐藏，避免反向显示
-      if (projVec.z > 1) {
-        el.style.visibility = 'hidden'
-        return
-      }
-      // NDC -> 屏幕像素坐标，标签定位在节点正上方
-      const x = (projVec.x * 0.5 + 0.5) * graphW
-      const y = (-projVec.y * 0.5 + 0.5) * graphH
-      el.style.visibility = 'visible'
-      // 高亮激活时，非高亮节点的标签淡化
-      el.style.opacity =
-        hlNodes.value.size > 0 && !hlNodes.value.has(node.id) ? '0.15' : '1'
-      el.style.transform = `translate(${x}px, ${y}px) translate(-50%, calc(-100% - 14px))`
-    })
-  }
-  rafId = requestAnimationFrame(updateLabels)
-}
-
-/**
  * 加载图谱数据并渲染 3D 图
  */
 async function loadGraph() {
@@ -1196,7 +431,7 @@ async function loadGraph() {
         .onEngineStop(() => {
           if (needAutoFit) {
             needAutoFit = false
-            autoFitCamera()
+            autoFitCamera(graphInstance)
           }
         })
         .width(width)
@@ -1226,62 +461,13 @@ async function loadGraph() {
     }
 
     // 重建 HTML 标签层（初始化或数据刷新时都会同步节点）
-    setupLabelLayer(nodes)
+    labelLayer.update(nodes)
     loading.value = false
   } catch (err) {
     loading.value = false
     console.error('加载图谱失败:', err)
     loadingText.value = '加载失败: ' + err.message
   }
-}
-
-/**
- * 根据节点包围盒自动调整相机距离，使全图完整可见
- * 默认相机 fov 约 60°，distance = 包围盒对角线 / (2*tan(fov/2)) * margin
- */
-function autoFitCamera() {
-  if (!graphInstance) return
-  const nodes = graphInstance.graphData().nodes
-  if (!nodes.length) return
-
-  const xs = nodes.map((n) => n.x || 0)
-  const ys = nodes.map((n) => n.y || 0)
-  const zs = nodes.map((n) => n.z || 0)
-  const min = { x: Math.min(...xs), y: Math.min(...ys), z: Math.min(...zs) }
-  const max = { x: Math.max(...xs), y: Math.max(...ys), z: Math.max(...zs) }
-  const center = {
-    x: (min.x + max.x) / 2,
-    y: (min.y + max.y) / 2,
-    z: (min.z + max.z) / 2,
-  }
-  const diagonal = Math.sqrt(
-    Math.pow(max.x - min.x, 2) +
-    Math.pow(max.y - min.y, 2) +
-    Math.pow(max.z - min.z, 2)
-  )
-  // 预留边距；最小距离防止空图怼脸，给标签留出呼吸空间
-  const { fitMargin, minFitDistance } = graphConfig.camera
-  const distance = Math.max(minFitDistance, diagonal / (2 * Math.tan(Math.PI / 6)) * fitMargin)
-
-  graphInstance.cameraPosition(
-    { x: center.x, y: center.y, z: center.z + distance },
-    center,
-    1200
-  )
-}
-
-/**
- * 聚焦到指定节点（相机移动到该节点位置）
- * @param {string} nodeId - 目标节点 ID
- */
-function focusNode(nodeId) {
-  if (!graphInstance || !nodeMap.value[nodeId]) return
-  const node = nodeMap.value[nodeId]
-  if (typeof node.x === 'undefined') return
-  const distance = graphConfig.camera.focusDistance
-  const lookAt = { x: node.x, y: node.y, z: node.z }
-  const cameraPos = { x: node.x, y: node.y, z: node.z + distance }
-  graphInstance.cameraPosition(cameraPos, lookAt, 1000)
 }
 
 // 搜索高亮
@@ -1291,7 +477,7 @@ watch(() => props.highlightName, (name) => {
     n.name.toLowerCase().includes(name.toLowerCase())
   )
   if (match) {
-    focusNode(match.id)
+    focusCamera(graphInstance, match)
   }
 })
 
@@ -1304,14 +490,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
-  // 停止标签投影循环并清理标签层
-  if (rafId) {
-    cancelAnimationFrame(rafId)
-    rafId = null
-  }
-  labelEls.clear()
-  labelLayer?.remove()
-  labelLayer = null
+  // 停止标签投影循环并清理标签层（含行星自转驱动）
+  labelLayer.dispose()
   if (graphInstance) {
     graphInstance._destructor()
     graphInstance = null
@@ -1326,7 +506,7 @@ function handleResize() {
 }
 
 // 暴露方法供父组件调用
-defineExpose({ loadGraph, focusNode })
+defineExpose({ loadGraph, focusNode: (nodeId) => focusCamera(graphInstance, nodeMap.value[nodeId]) })
 </script>
 
 <template>
