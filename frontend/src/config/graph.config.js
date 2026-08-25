@@ -15,19 +15,19 @@ export const graphConfig = {
     /** 力导向布局中，每条连接增加的"质量"（影响力学，不影响视觉大小） */
     valPerDegree: 0.25,
     /** 布局质量上限 */
-    maxVal: 5,
+    maxVal: 7,
   },
 
   // ---------- 力导向布局 ----------
   force: {
     /** 节点间斥力（绝对值越大越分散） */
-    chargeStrength: -570,
+    chargeStrength: -800,
     /** 连线理想长度 */
-    linkDistance: 100,
+    linkDistance: 150,
     /** 碰撞检测时，在球体半径外额外保留的边距（防标签贴脸） */
     collidePadding: 3,
     /** 布局演算轮数（越多越充分，但首屏等待越长） */
-    cooldownTicks: 450,
+    cooldownTicks: 350,
     /** alpha 衰减速度（越小布局收敛越慢、越充分） */
     alphaDecay: 0.05,
   },
@@ -35,9 +35,9 @@ export const graphConfig = {
   // ---------- 相机 ----------
   camera: {
     /** 初始相机距离（z 轴） */
-    initialZ: 320,
+    initialZ: 350,
     /** 自动适配全图时的边距倍数（1 = 刚好贴边，2.4 = 宽松） */
-    fitMargin: 2.4,
+    fitMargin: 2.5,
     /** 自动适配的最小距离（防止空图时怼脸） */
     minFitDistance: 160,
     /** 聚焦单个节点时的相机距离 */
@@ -47,7 +47,7 @@ export const graphConfig = {
   // ---------- 宇宙银河氛围 ----------
   cosmos: {
     /** 星星数量（悬浮在图谱外围的粒子点） */
-    starCount: 3500,
+    starCount: 3000,
     /** 星星分布半径范围 [内径, 外径]（必须大于图谱扩散范围） */
     starRadius: [450, 1800],
     /** 远处星云团数量（大面积絮状云雾色块） */
@@ -61,11 +61,11 @@ export const graphConfig = {
     /** 行星缓慢自转开关（斑纹随时间流动，增强真实感） */
     planetSpin: true,
     /** 星球光晕尺寸 = 球体半径 × 该倍数 */
-    glowScale: 3.0,
+    glowScale: 2.0,
     /** 光晕透明度（0~1） */
     glowOpacity: 0.5,
     /** 星球自发光强度（调低可让定向光的明暗晨昏线更清晰，行星感更强） */
-    emissive: 0.22,
+    emissive: 0.20,
     /** 场景深空背景色 */
     spaceColor: '#04060e',
   },
