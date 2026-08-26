@@ -155,8 +155,19 @@ for hops in range(1, max_hops + 1):
 - `forceCollide` 防节点重叠
 - 节点半径 = 视觉半径（影响相机距离），力导向质量独立计算，避免"视觉大球互相排斥把图撑爆"
 - 布局参数（斥力、连接距离、冷却轮数）集中在 `config/graph.config.js`
+- 开局动画节奏：“先自由展开、最后一口气收回”——力引擎运行期间相机固定在 `camera.initialZ`，
+  节点自由散开；引擎停止后由 `onEngineStop` 一次性收尾取景，动画时长由 `camera.fitDuration` 控制。
+  首屏等待总时长 ≈ `cooldownTicks` ÷ 60fps
+- 交互优先：监听轨道控制器 `start` 事件，用户一旦旋转/缩放/平移，收尾取景即让位不夺视角；
+  布局期间相机不自动干预，用户可自由操作画面（拖拽节点不受该标记影响）
 
 ### 5.2 宇宙主题
+
+布局：3D 画布为**全屏背景层**（App.vue 中 `Graph3D` 绝对定位铺满 `inset: 0`），
+导航栏/左右侧栏/底栏用 `--bg-panel` 半透明色 + `backdrop-filter: blur(16px)` 悬浮其上，
+毛玻璃直接透出星空。面板透明度由 `graph.config.js` 的 `ui.panelOpacity` 控制（`main.js`
+启动时注入 `--panel-alpha` CSS 变量，保存配置后自动重载生效）。`app-layout` 设
+`pointer-events: none` 让布局层不拦鼠标，面板与 3D 包装器各自 `pointer-events: auto` 恢复交互。
 
 场景由 `setupCosmos(scene)` 搭建：
 
@@ -182,6 +193,8 @@ for hops in range(1, max_hops + 1):
 
 - `localeCompare(locale: 'zh-Hans-CN-u-co-pinyin')`：中文按拼音序，英文不区分大小写，数字自然序（`numeric: true`）
 - 实体面板：按实体名排序；关系面板：先比源实体名、同名再比目标实体名
+- 类型列表同样按首字母升序：App.vue `loadMeta` 对实体/关系类型数组排序（供筛选与表单下拉框），
+  两个类型管理弹窗（TypeManager / RelationTypeManager）在 `computed` 内对类型条目排序后渲染
 - 排序发生在 `computed` 内且先 `slice()`，不改动响应式源数组；类型过滤/搜索后仍保持有序
 
 ### 5.5 3D 模块拆分（单文件 ≤800 行）
@@ -193,7 +206,7 @@ for hops in range(1, max_hops + 1):
 | `components/Graph3D.vue` | 渲染骨架：数据加载、图实例初始化、高亮/路径交互编排、模板与样式 |
 | `utils/planetTexture.js` | 行星纹理（种子噪声 + fBm、气态/类地两种风格）与大气散射壳，同色节点共享纹理缓存 |
 | `utils/cosmos.js` | 宇宙场景搭建 `setupCosmos(scene)`：灯光/星空/银河/星云/黑洞，含光晕/吸积盘/星云贴图生成 |
-| `utils/graphCamera.js` | 相机控制：全图包围盒自适应取景 `autoFitCamera` + 单节点聚焦 `focusCamera`（纯函数，图实例由调用方传入） |
+| `utils/graphCamera.js` | 相机控制：全图包围盒自适应取景 `autoFitCamera`（动画时长可传参，缺省用 `camera.fitDuration`） + 单节点聚焦 `focusCamera`（纯函数，图实例由调用方传入） |
 | `utils/labelLayer.js` | 节点 HTML 标签覆盖层：rAF 逐帧投影定位，相机/高亮/点击回调由组件注入，循环内顺带驱动行星自转 |
 
 拆分原则：工具模块不依赖组件内部状态（依赖倒置，回调/参数注入），可独立测试与复用。
@@ -267,7 +280,64 @@ MCP 协议层面工具**没有只读/写入标记**，权限由客户端侧控�
 - 跨进程安全由**原子写**（`os.replace`，写坏不丢旧数据）+ **乐观锁**（写前校验 version）兜底
 - 个人单用户场景下冲突概率低；若需更强一致性，后续可在存储层替换时统一处理
 
-## 8. 已知限制
+## 8. 知识抽取管线（GraphRAG 自动抽取）
+
+### 8.1 管线结构
+
+`ingest.py` 实现「文本 → 三元组 → 查重 → 写入」管线，与 `api.py` 共享同一个
+`KnowledgeGraph` 引擎，写入复用乐观锁与自动备份（可回滚）：
+
+```
+输入（文本 / .txt / .md / .json 会话文件）
+  → 闸④ 信息密度预检（过短/纯疑问句直接拒绝，不调 LLM）
+  → LLM 抽取（OpenAI 兼容协议，标准库 urllib，零新依赖）
+  → 闸② 价值预判（寒暄/情绪/琐事 → 空三元组，零写入）
+  → 闸③ 类型白名单（实体/关系类型必须命中现有类型表，否则进待确认清单）
+  → 实体/关系查重（名称归一化匹配 + (源,目标,类型) 指纹）
+  → 写入 KnowledgeGraph（dry_run 时只返回预览）
+```
+
+### 8.2 五道防噪闸（闲聊不入图谱）
+
+| 闸 | 机制 | 实现位置 |
+|---|---|---|
+| ① 入口闸 | 不挂聊天实时链路，仅 REST/MCP/批量脚本显式触发 | 架构约束 |
+| ② 价值判断闸 | 抽取 prompt 内置预判 + 负例示范，无知识含量返回空 | `build_system_prompt` |
+| ③ 类型白名单闸 | 类型不在表内进 `pending_review`，不写入 | `ingest_text` |
+| ④ 信息密度闸 | 少于 12 字符/纯疑问句直接拒绝 | `density_check` |
+| ⑤ 人工闸 | `dry_run` 预览 + 写入前自动备份可回滚 | API `dry_run` 参数 |
+
+### 8.3 抽取模型配置
+
+配置优先级：**环境变量 > `backend/ingest.toml` > 内置默认值**（模板见 `ingest.toml.example`，
+真实配置含密钥已被 .gitignore 排除）：
+
+| 字段 | 默认值 | 说明 |
+|---|---|---|
+| `base_url` | DashScope 兼容端点 | OpenAI 兼容协议 |
+| `model` | `qwen-flash` | 独立便宜模型，与主 LLM 解耦 |
+| `api_key` | 留空 | 明文密钥（不建议），留空走环境变量 |
+| `api_key_env` | 留空 | 指定从哪个环境变量读密钥（如 `DEEPSEEK_API_KEY`）；再留空则依次回退 `DASHSCOPE_API_KEY` / `OPENAI_API_KEY` |
+| `max_chars` | 8000 | 送入 LLM 的文本上限，超长截断 |
+
+环境变量 `INGEST_BASE_URL` / `INGEST_MODEL` / `INGEST_API_KEY` 可临时覆盖。
+厂商欠费/不可用时只需改 `base_url` / `model` / `api_key_env` 即可切换（如切 DeepSeek）；
+HTTP 错误会在接口 `detail` 中透出厂商返回的具体原因（欠费/模型不存在/限流）。
+实体写入时自动附带 `properties.source`（text / file）溯源。
+
+### 8.4 对外接口
+
+| 接口 | 说明 |
+|---|---|
+| `POST /api/ingest` | JSON 文本抽取（`dry_run` 预览，`as_session` 按会话 JSON 解析） |
+| `POST /api/ingest/file` | 上传 .txt/.md/.json 文件抽取（上限 2MB，UTF-8） |
+
+返回统一结果结构：`created_entities` / `created_relations` /
+`skipped_duplicate_*`（查重）/ `pending_review`（待人工裁决）/
+`skipped_relations`（含拒绝原因）/ `gate`（闸门判定）。
+单元测试见 `test_ingest.py`（LLM 全 mock，含闲聊零写入负例）。
+
+## 9. 已知限制
 
 | 限制 | 说明 |
 |---|---|
@@ -277,12 +347,12 @@ MCP 协议层面工具**没有只读/写入标记**，权限由客户端侧控�
 | 图片无回收 | 删除实体的图片属性不会删除 `uploads/` 里的文件 |
 | 属性整体替换 | 更新实体/关系时 `properties` 为整体替换，非深合并 |
 
-## 9. 演进路线
+## 10. 演进路线
 
 按数据量与并发增长，优先级建议：
 
 1. **存储层替换**：JSON → SQLite（`KnowledgeGraph` 内部实现替换，接口不变）
 2. **图数据库**：Kùzu（嵌入式，列式图存储）/ Neo4j（服务化），当路径查询变慢时
-3. **搜索升级**：SQLite FTS5 或 PostgreSQL 全文索引替代线性扫描
-4. **自动抽取**：GraphRAG 从聊天记录/文档抽取实体关系，复用现有乐观锁与备份
+3. **搜索升级**：SQLite FTS5 或 PostgreSQL 全文索引替代线性扫描；或 embedding 语义检索（P3）
+4. ~~**自动抽取**~~：✅ 已完成（P1，见第 8 节）；后续可补 MCP `ingest_text` 工具供 Agent 触发，查重可引入 embedding 相似度（依赖 P3）
 5. **图片管理**：上传文件纳入备份/迁移范围，支持删除回收
