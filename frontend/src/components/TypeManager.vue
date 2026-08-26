@@ -5,8 +5,9 @@
   @author aceFelix
 -->
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
+import { nameCompare } from '../utils/sort'
 
 const emit = defineEmits(['close', 'refresh'])
 
@@ -19,6 +20,10 @@ const PRESET_COLORS = [
 
 const types = ref({}) // name -> color
 const usage = ref({}) // name -> 实体数
+// 类型列表按名称首字母升序（中文拼音序），与实体列表排序规则一致
+const sortedTypes = computed(() =>
+  Object.entries(types.value).sort(([a], [b]) => nameCompare(a, b))
+)
 // 新增表单
 const newName = ref('')
 const newColor = ref(PRESET_COLORS[1])
@@ -123,7 +128,7 @@ onMounted(() => load())
 
       <!-- 类型列表 -->
       <div class="type-list">
-        <div v-for="(color, name) in types" :key="name" class="type-item">
+        <div v-for="[name, color] in sortedTypes" :key="name" class="type-item">
           <label class="type-color" :style="{ background: color }" :title="'修改颜色 ' + color">
             <input type="color" :value="color" @input="changeColor(name, $event.target.value)" />
           </label>

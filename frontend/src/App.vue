@@ -47,8 +47,10 @@ const statsRef = ref()
  */
 async function loadMeta() {
   const meta = await api.getMeta()
-  entityTypes.value = meta.entity_types
-  relationTypes.value = meta.relation_types
+  // 类型列表按首字母升序（中文拼音序），与实体/关系列表排序规则保持一致；
+  // slice 避免 sort 直接改动接口返回的数组
+  entityTypes.value = meta.entity_types.slice().sort(nameCompare)
+  relationTypes.value = meta.relation_types.slice().sort(nameCompare)
   relationTypeLabels.value = meta.relation_type_labels || {}
   entityColors.value = meta.entity_colors
   graphVersion.value = meta.version || 1
@@ -155,6 +157,13 @@ onMounted(() => init())
 
 <template>
   <div class="app-layout">
+    <!-- 3D 宇宙：提升为全屏背景层（绝对定位铺满），导航栏/侧栏/底栏的毛玻璃才能透出星空 -->
+    <Graph3D
+      ref="graphRef"
+      :highlight-name="searchQuery"
+      @select-entity="onSelectEntity"
+    />
+
     <!-- 顶部搜索栏 -->
     <header class="topbar">
       <div class="logo">
@@ -210,14 +219,9 @@ onMounted(() => init())
         </div>
       </aside>
 
-      <!-- 中央 3D 可视化 -->
-      <main class="graph-area">
-        <Graph3D
-          ref="graphRef"
-          :highlight-name="searchQuery"
-          @select-entity="onSelectEntity"
-        />
-      </main>
+      <!-- 中央 3D 可视化（画布已提升为全屏背景层，此处仅保留布局占位，
+           不拦点击，让鼠标穿透到下层的 3D 画布） -->
+      <main class="graph-area"></main>
 
       <!-- 右侧详情面板 -->
       <aside class="sidebar right" v-if="showDetail && selectedEntity">
@@ -264,6 +268,20 @@ onMounted(() => init())
   flex-direction: column;
   height: 100vh;
   position: relative;
+  /* 布局层不拦鼠标，让空白处的点击穿透到全屏 3D 画布（实体元素自行恢复交互） */
+  pointer-events: none;
+}
+.app-layout > header,
+.app-layout > footer,
+.sidebar {
+  pointer-events: auto;
+}
+
+/* 3D 宇宙全屏背景层：位于所有面板之下 */
+:deep(.graph3d-wrapper) {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
 }
 
 /* 顶部栏 */
@@ -307,11 +325,12 @@ onMounted(() => init())
   position: relative;
 }
 
-/* 侧边栏：悬浮在 3D 宇宙背景之上 */
+/* 侧边栏：悬浮在 3D 宇宙背景之上（毛玻璃透出星空） */
 .sidebar {
   width: 300px;
   background: var(--bg-panel);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid var(--border);
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
   display: flex;
@@ -352,7 +371,7 @@ onMounted(() => init())
   flex-direction: column;
 }
 
-/* 图谱区域：占据主区域剩余空间，工具条和详情面板互不遮挡 */
+/* 图谱区域：仅布局占位（画布已全屏铺底），不拦点击事件 */
 .graph-area {
   flex: 1;
   position: relative;

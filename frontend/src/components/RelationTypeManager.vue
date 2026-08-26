@@ -6,13 +6,18 @@
   @author aceFelix
 -->
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
+import { nameCompare } from '../utils/sort'
 
 const emit = defineEmits(['close', 'refresh'])
 
 const types = ref({}) // name -> 中文标签
 const usage = ref({}) // name -> 关系数
+// 类型列表按代码首字母升序（中文拼音序），与关系列表排序规则一致
+const sortedTypes = computed(() =>
+  Object.entries(types.value).sort(([a], [b]) => nameCompare(a, b))
+)
 // 新增表单
 const newName = ref('')
 const newLabel = ref('')
@@ -128,7 +133,7 @@ onMounted(() => load())
 
       <!-- 类型列表 -->
       <div class="type-list">
-        <div v-for="(label, name) in types" :key="name" class="type-item">
+        <div v-for="[name, label] in sortedTypes" :key="name" class="type-item">
           <!-- 代码（可改名） -->
           <template v-if="renaming === name">
             <input

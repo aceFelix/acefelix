@@ -8,7 +8,10 @@
   /* 宇宙银河主题 */
   --bg-primary: #05070f;
   --bg-secondary: #0c1222;
-  --bg-panel: rgba(8, 12, 22, 0.38);
+  /* 面板毛玻璃透明度（由 config/graph.config.js 的 ui.panelOpacity 在启动时注入覆盖；
+     用现代空格语法而非 rgba()+var()，避免旧引擎不支持变量替换导致面板透明失效） */
+  --panel-alpha: 0.38;
+  --bg-panel: rgb(8 12 22 / var(--panel-alpha));
   --text-primary: #e6ecf5;
   --text-secondary: #8b96b0;
   --accent: #4ecdc4;
