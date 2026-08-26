@@ -7,16 +7,18 @@ FastAPI 服务入口
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import uuid
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from ingest import IngestError, ingest_text, session_to_text
 from knowledge_graph import KnowledgeGraph
 
 # 初始化 FastAPI 应用
@@ -411,6 +413,77 @@ def search_entities(q: str) -> List[Dict[str, Any]]:
 def get_stats() -> Dict[str, Any]:
     """获取图谱统计信息"""
     return kg.get_stats()
+
+
+# ------------------------------------------------------------------ #
+# 知识抽取接口（P1 GraphRAG：文本 → 三元组 → 查重 → 写入）
+# ------------------------------------------------------------------ #
+
+class IngestRequest(BaseModel):
+    """文本抽取入库的请求体"""
+
+    text: str  # 待抽取文本（聊天记录片段/文档内容）
+    dry_run: bool = False  # True 时只返回预览，不写入图谱（防噪人工闸）
+    source: str = "text"  # 来源标记（写入实体属性溯源）
+    as_session: bool = False  # True 时把 text 按会话 JSON（messages 数组）解析
+
+
+# 上传抽取的文件大小上限（2MB，个人文本场景足够）
+INGEST_FILE_MAX_BYTES = 2 * 1024 * 1024
+
+
+@app.post("/api/ingest")
+def ingest(body: IngestRequest) -> Dict[str, Any]:
+    """
+    从文本自动抽取实体与关系写入图谱（GraphRAG）。
+    内置五道防噪闸：密度预检/价值预判/类型白名单/查重，闲聊文本零写入；
+    dry_run=true 返回预览供人工确认后再正式写入。
+    """
+    text = body.text or ""
+    # 会话 JSON 模式：把 messages 数组转成 "role: content" 逐行文本
+    if body.as_session:
+        try:
+            text = session_to_text(json.loads(text))
+        except (json.JSONDecodeError, IngestError) as e:
+            raise HTTPException(status_code=400, detail=f"会话 JSON 解析失败: {e}")
+    try:
+        return ingest_text(kg, text, dry_run=body.dry_run, source=body.source)
+    except IngestError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.post("/api/ingest/file")
+def ingest_file(
+    file: UploadFile = File(...),
+    dry_run: bool = Form(False),
+    as_session: bool = Form(False),
+) -> Dict[str, Any]:
+    """
+    上传 .txt/.md/.json 文件抽取入库。
+    as_session=true 时按 jarvis 会话记录（messages 数组）解析；
+    其余情况按纯文本处理。仅接受文本类文件，上限 2MB。
+    """
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in (".txt", ".md", ".json"):
+        raise HTTPException(status_code=400, detail="仅支持 .txt / .md / .json 文件")
+    raw = file.file.read()
+    if len(raw) > INGEST_FILE_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="文件超过 2MB 上限")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="文件不是 UTF-8 编码文本")
+
+    if as_session or suffix == ".json":
+        # JSON 文件优先按会话结构解析，解析失败再退回纯文本
+        try:
+            text = session_to_text(json.loads(text))
+        except (json.JSONDecodeError, IngestError):
+            pass
+    try:
+        return ingest_text(kg, text, dry_run=dry_run, source="file")
+    except IngestError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 # ------------------------------------------------------------------ #

@@ -13,6 +13,7 @@
 ## 功能特性
 
 - **知识图谱核心**：NetworkX 图引擎 + JSON 持久化，支持实体/关系增删改查
+- **GraphRAG 自动抽取**：丢入文本/文档/会话记录，LLM 自动抽取实体关系入库；五道防噪闸保证闲聊零写入，支持 `dry_run` 预览与查重
 - **3D 可视化**：基于 3d-force-graph（Three.js）的力导向 3D 图，节点为程序化生成的**真实行星**（气态云带/风暴斑或海陆/环形山，带大气辉光与缓慢自转），背景含星空、银河旋臂、星云、黑洞
 - **动态类型**：实体类型与关系类型支持增删改查、改色、改名（级联更新）、中文标签，删除有保护
 - **图查询**：邻居子图、两点间关联路径、共同邻居、搜索
@@ -27,11 +28,15 @@
 ```
 acefelix/
 ├── backend/                  # Python 后端
-│   ├── api.py                # FastAPI REST 服务（含图片上传、静态资源）
+│   ├── api.py                # FastAPI REST 服务（含图片上传、知识抽取、静态资源）
+│   ├── ingest.py             # GraphRAG 抽取管线（文本 → 三元组 → 查重 → 写入）
+│   ├── ingest.toml.example   # 抽取模型配置模板（真实配置不入库）
 │   ├── mcp_server.py         # MCP Server（Agent 接入，stdio）
 │   ├── knowledge_graph.py    # 知识图谱核心引擎（CRUD + 查询 + 持久化）
 │   ├── models.py             # 实体/关系数据模型
 │   ├── seed.py               # 种子数据初始化脚本
+│   ├── test_mcp_server.py    # MCP Server 单元测试
+│   ├── test_ingest.py        # 抽取管线单元测试（含闲聊零写入负例）
 │   ├── requirements.txt
 │   ├── data/
 │   │   ├── graph.json        # 图谱数据文件
@@ -69,7 +74,7 @@ acefelix/
 
 ### 环境要求
 
-- Python 3.9+
+- Python 3.11+（抽取管线使用标准库 tomllib）
 - Node.js 16+
 - npm 或 yarn
 
@@ -129,9 +134,26 @@ python mcp_server.py          # 启动 MCP Server，通过 stdio 供 Agent 调�
 | GET | /api/graph/common | 两实体共同邻居 |
 | GET | /api/search?q= | 搜索实体 |
 | GET | /api/stats | 图谱统计 |
+| POST | /api/ingest | 文本抽取入库（dry_run 预览，闲聊零写入） |
+| POST | /api/ingest/file | 上传 .txt/.md/.json 文件抽取 |
 | POST | /api/upload | 上传图片 |
 
 完整请求/响应示例见 [docs/API.md](./docs/API.md)，FastAPI 交互文档见 `http://127.0.0.1:8800/docs`。
+
+## 知识抽取（GraphRAG）
+
+把一段文本交给 `POST /api/ingest`（或上传文件到 `POST /api/ingest/file`），
+LLM 自动抽取实体与关系写入图谱：
+
+```bash
+# 预览（不写入）
+curl -X POST http://127.0.0.1:8800/api/ingest -H "Content-Type: application/json" \
+  -d "{\"text\": \"小明掌握 Python，正在参与 AceFelix 项目。\", \"dry_run\": true}"
+```
+
+- **防噪**：内置五道闸（不挂聊天实时链路/价值预判/类型白名单/密度预检/人工确认），闲聊寒暄零写入；详见 [docs/TECHNICAL.md](./docs/TECHNICAL.md) 第 8 节
+- **模型配置**：默认走 `DASHSCOPE_API_KEY` 环境变量 + DashScope `qwen-flash`；可复制 `backend/ingest.toml.example` 为 `backend/ingest.toml` 自定义（不入库）
+- **安全**：`dry_run=true` 先预览再写入；写入前自动备份，可用 `data/backups/` 回滚
 
 ## Agent 接入
 
@@ -176,7 +198,7 @@ cp -r skills/acefelix-knowledge ~/.jarvis/skills/
 > 完整升级计划书（技术选型与实现思路）见 [docs/plans/upgrade-plan.md](./docs/plans/upgrade-plan.md)
 
 - [x] 与 JARVIS 联动，让 JARVIS 更懂用户（MCP Server 接入已完成）
-- [ ] P1 GraphRAG 自动抽取：从聊天记录/文档中自动抽取实体关系
+- [x] P1 GraphRAG 自动抽取：从聊天记录/文档中自动抽取实体关系（`ingest.py` + `/api/ingest`，五道防噪闸）
 - [ ] P2 画像双向同步：会话提炼结果回写图谱，图谱画像注入系统提示
 - [ ] P3 语义检索：embedding 语义搜索替代关键词匹配
 - [ ] P4 关联推荐：相似实体与潜在兴趣推荐

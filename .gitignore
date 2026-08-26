@@ -26,6 +26,9 @@ py_debug.txt
 # 数据备份（自动滚动 20 份，不入库）
 backend/data/backups/
 
+# 抽取模型本地配置（含 API Key，不入库；模板见 ingest.toml.example）
+backend/ingest.toml
+
 # 个人图谱数据与上传图片（含个人画像，不入库，clone 后运行 seed.py 生成）
 backend/data/graph.json
 backend/uploads/

@@ -51,7 +51,10 @@ jobs:
         run: python -m compileall -q .
 
       - name: Run tests
-        run: python test_mcp_server.py
+        run: |
+          python test_mcp_server.py
+          # 抽取管线测试：LLM 全 mock，无需 API Key；覆盖五道防噪闸与查重（含闲聊零写入负例）
+          python test_ingest.py
 
   frontend:
     name: Frontend build
