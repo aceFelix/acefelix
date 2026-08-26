@@ -10,8 +10,9 @@ import { graphConfig } from '../config/graph.config'
  * 根据节点包围盒自动调整相机距离，使全图完整可见
  * 默认相机 fov 约 60°，distance = 包围盒对角线 / (2*tan(fov/2)) * margin
  * @param {object} graphInstance - 3d-force-graph 实例
+ * @param {number} [duration] - 相机移动时长（ms）；缺省用配置 camera.fitDuration，0 = 瞬间到位（布局期间实时跟随时用）
  */
-export function autoFitCamera(graphInstance) {
+export function autoFitCamera(graphInstance, duration) {
   if (!graphInstance) return
   const nodes = graphInstance.graphData().nodes
   if (!nodes.length) return
@@ -35,10 +36,11 @@ export function autoFitCamera(graphInstance) {
   const { fitMargin, minFitDistance } = graphConfig.camera
   const distance = Math.max(minFitDistance, diagonal / (2 * Math.tan(Math.PI / 6)) * fitMargin)
 
+  const animMs = typeof duration === 'number' ? duration : graphConfig.camera.fitDuration
   graphInstance.cameraPosition(
     { x: center.x, y: center.y, z: center.z + distance },
     center,
-    1200
+    animMs
   )
 }
 

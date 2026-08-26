@@ -30,6 +30,9 @@ let ForceGraph3D = null
 // 仅在数据加载/刷新后的引擎冷却完成时自动适配相机一次；
 // 用户拖拽节点引发的重新加热不触发，避免视角被强制拉回
 let needAutoFit = true
+// 用户一旦手动操作过相机（旋转/缩放/平移），本轮加载的收尾取景让位，
+// 避免引擎冷却结束时的自动取景夺回用户视角（拖拽节点不受影响）
+let userTouchedCamera = false
 const entityColors = ref({})
 const relationLabels = ref({}) // 关系类型代码 -> 中文标签（路径面板显示用）
 const nodeMap = ref({}) // id -> node data
@@ -320,8 +323,9 @@ async function loadGraph() {
     const [meta, graphData] = await Promise.all([api.getMeta(), api.getGraph()])
     entityColors.value = meta.entity_colors
     relationLabels.value = meta.relation_type_labels || {}
-    // 数据刷新：允许下一次引擎冷却后自动适配一次相机
+    // 数据刷新：允许下一次引擎冷却后自动适配一次相机（用户交互标记同步重置）
     needAutoFit = true
+    userTouchedCamera = false
 
     // 构造 3d-force-graph 所需的数据格式
     const nodes = graphData.entities.map((e) => ({
@@ -427,11 +431,14 @@ async function loadGraph() {
           node.fy = node.y
           node.fz = node.z
         })
-        // 引擎停止后自动把相机拉远到能装下全图（仅首次加载/数据刷新时）
+        // 引擎停止后一次性把相机拉远到能装下全图（“先自由展开、最后一口气收回”的节奏）；
+        // 仅首次加载/数据刷新时触发，用户已手动操作相机则让位不夺视角
         .onEngineStop(() => {
           if (needAutoFit) {
             needAutoFit = false
-            autoFitCamera(graphInstance)
+            if (!userTouchedCamera) {
+              autoFitCamera(graphInstance)
+            }
           }
         })
         .width(width)
@@ -455,6 +462,11 @@ async function loadGraph() {
           forceCollide((n) => nodeRadius(n) + graphConfig.force.collidePadding)
         )
       }
+      // 监听轨道控制器：用户开始旋转/缩放/平移即标记，引擎冷却结束的收尾取景将让位，
+      // 不再夺回用户视角；布局期间相机固定在 initialZ，用户可自由操作画面
+      graphInstance.controls().addEventListener('start', () => {
+        userTouchedCamera = true
+      })
       // 搭建宇宙场景：灯光、星空、星云
       setupCosmos(graphInstance.scene())
       console.log('[Graph3D] instance created:', !!graphInstance)
@@ -567,6 +579,9 @@ defineExpose({ loadGraph, focusNode: (nodeId) => focusCamera(graphInstance, node
   position: relative;
   width: 100%;
   height: 100%;
+  /* 被 App 提升为全屏背景层时父级设了 pointer-events:none 让空白处穿透，
+     这里恢复交互，保证聚焦按钮/路径面板/节点点击可用 */
+  pointer-events: auto;
 }
 .graph3d-container {
   width: 100%;

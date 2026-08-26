@@ -4,6 +4,12 @@
  */
 
 export const graphConfig = {
+  // ---------- UI 面板毛玻璃 ----------
+  ui: {
+    /** 面板毛玻璃透明度（0~1，越小越通透、星空越清晰；作用于顶部导航栏/左右侧栏/底部统计栏） */
+    panelOpacity: 0.25,
+  },
+
   // ---------- 节点外观 ----------
   node: {
     /** 无连接节点的基础半径 */
@@ -27,7 +33,7 @@ export const graphConfig = {
     /** 碰撞检测时，在球体半径外额外保留的边距（防标签贴脸） */
     collidePadding: 3,
     /** 布局演算轮数（越多越充分，但首屏等待越长） */
-    cooldownTicks: 350,
+    cooldownTicks: 300,
     /** alpha 衰减速度（越小布局收敛越慢、越充分） */
     alphaDecay: 0.05,
   },
@@ -40,6 +46,8 @@ export const graphConfig = {
     fitMargin: 2.5,
     /** 自动适配的最小距离（防止空图时怼脸） */
     minFitDistance: 160,
+    /** 自动适配全图时的相机移动时长（ms，布局结束后收尾取景的动画速度） */
+    fitDuration: 400,
     /** 聚焦单个节点时的相机距离 */
     focusDistance: 120,
   },
