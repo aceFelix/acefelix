@@ -4,7 +4,7 @@
   @author aceFelix
 -->
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { api } from '../api'
 import { nameCompare } from '../utils/sort'
 import RelationTypeManager from './RelationTypeManager.vue'
@@ -146,6 +146,11 @@ async function removeRelation(id) {
     alert('删除失败: ' + err.message)
   }
 }
+
+// 数据版本号变化（其他面板删实体/删关系等任何写操作后，refreshAll 会拉取新版本号）
+// 时重新加载关系列表：本组件用 v-show 保活，若不监听会持有过期快照，
+// 导致已删实体的残留关系显示为 '?'
+watch(() => props.graphVersion, () => loadRelations())
 
 onMounted(() => loadRelations())
 defineExpose({ loadRelations })
