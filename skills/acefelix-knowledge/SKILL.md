@@ -38,6 +38,7 @@ aceFelix 的个人知识图谱（通过 MCP server `acefelix-knowledge` 接入�
 
 | 工具 | 用途 |
 |---|---|
+| `ingest_text(text, dry_run?)` | **推荐**：文本交给自动抽取管线，内置查重与防噪闸；先 `dry_run=true` 预览，用户确认后 `dry_run=false` 写入 |
 | `add_entity(name, type, properties?)` | 新增实体（先 `list_types` 确认类型） |
 | `add_relation(source, target, type)` | 新增关系（先 `list_relation_types`） |
 
@@ -47,7 +48,8 @@ aceFelix 的个人知识图谱（通过 MCP server `acefelix-knowledge` 接入�
    再按需 `get_entity` / `get_neighbors` 深入。
 2. **回答用图谱事实**：当图谱信息与聊天记忆冲突时，以图谱为准并说明来源。
 3. **新信息回写图谱**：用户主动告知新的技能/项目/经历（如"我最近在学 X"、
-   "我开始做 Y 项目"）时，用 `add_entity` + `add_relation` 记录，保持图谱新鲜。
+   "我开始做 Y 项目"）时，优先用 `ingest_text`（先预览后确认），
+   单条简单事实也可用 `add_entity` + `add_relation` 直接记录，保持图谱新鲜。
 4. **先查后写**：写入前先 `search_entity` 确认实体不存在，避免重复；类型不存在时
    先提示用户（类型管理目前走 Web 端）。
 5. **紧凑输出**：图谱数据可能较大，返回给用户时提炼要点，不要整段倾倒 JSON。

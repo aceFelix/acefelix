@@ -1,6 +1,7 @@
 # AceFelix 知识图谱升级计划书
 
-> 版本：v1.0 ｜ 日期：2026-08-23
+> 版本：v1.1 ｜ 日期：2026-08-27（更新：确认 P3 为下一阶段目标）
+> 初版：v1.0 ｜ 2026-08-23
 > 定位：个人知识图谱从"手动维护的工具"升级为"越用越懂你的活系统"的实施路线图
 > 现状基准：MCP Server + Skill 接入已完成，CRUD/图查询/3D 可视化/数据保护均已就绪
 
@@ -45,7 +46,7 @@
 > `test_ingest.py`（15 用例全过，含闲聊零写入负例）+ 真实 LLM 端到端验证。
 > 模型配置：`backend/ingest.toml`（模板 `ingest.toml.example`，支持 `api_key_env` 指定密钥环境变量；
 > 因阿里云账号欠费，当前临时使用 DeepSeek `deepseek-v4-flash`，充值后改回 DashScope 即可）。
-> 待补：MCP `ingest_text` 工具（供 Agent 触发，归入 P2 链路）。
+> 待补：~~MCP `ingest_text` 工具~~ ✅ 已随 P2 补齐（2026-08-27）：Agent 触发抽取与 jarvis 画像回写共用该工具。
 
 ### 3.1 目标
 从 jarvis 会话记录 / 用户指定的文本文件中自动抽取「实体 + 关系」三元组，
@@ -107,6 +108,16 @@ testing 要求：验收用例必须包含“闲聊文本输入 → 零实体写�
 
 ## 4. P2 · 画像双向同步
 
+> ✅ **已交付（2026-08-27）**：
+> - acefelix：`mcp_server.py` 新增 `ingest_text` 工具（复用第 8 节抽取管线，`dry_run` 默认开）+ 4 用例测试，工具总数 13 个全过。
+> - jarvis：新增 `agent/core/extensions/profile_bridge.py`——启动时经 MCP `get_profile` 预加载图谱画像，
+>   与本地画像记忆两段合并注入 system prompt（冲突规则：图谱为唯一事实源）；
+>   `/memory sync` 把本地画像经 `ingest_text` 管线回写（先预览、`/memory sync yes` 确认后写入，查重保证幂等）。
+> - 配置：`settings.toml [profile_bridge]`（enabled/server/token_limit，默认关闭）+ 两份 settings.example.toml 同步。
+> - 实现偏差：回写未逐条调 `add_entity`/`add_relation`，而是把画像汇总文本交给 `ingest_text` 管线，
+>   复用其查重/类型白名单/防噪闸，更稳更省代码。
+> - 测试：bridge 18 用例 + profile_memory/mcp_client 68 用例回归全过。
+
 ### 4.1 目标
 - **图谱 → jarvis**：jarvis 启动时将图谱画像注入 system prompt，让 Agent 直接掌握结构化用户信息
 - **jarvis → 图谱**：会话提炼出的新画像条目自动转换为图谱实体/关系
@@ -141,6 +152,11 @@ testing 要求：验收用例必须包含“闲聊文本输入 → 零实体写�
 ---
 
 ## 5. P3 · 语义检索
+
+> 🎯 **下一次升级目标（2026-08-27 确认）**：P1/P2 已交付，本版块为下一阶段。
+> 启动时机建议：实体积累到百级以上（当前 ~25 个，关键词搜索仍够用）；
+> 前置条件：DashScope embedding 可用（阿里云充值后恢复，或先用 DeepSeek/本地 embedding 替代）。
+> 附加收益：embedding 相似度可反哺 P1 查重（名称匹配升级为语义查重）。
 
 ### 5.1 目标
 `search()` 从子串匹配升级为 embedding 语义检索，支持"用意思找知识"。
@@ -226,10 +242,10 @@ NetworkX 自带算法即可覆盖个人量级：
 | 阶段 | 内容 | 交付物 | 状态 |
 |---|---|---|---|
 | M1 | P1 GraphRAG 自动抽取 | `ingest.py` + API + 测试 + 文档 | ✅ 2026-08-26 |
-| M2 | P2 画像双向同步 | jarvis `profile_bridge` + 图谱写入链路 | 待启动 |
-| M3 | P3 语义检索 | `embedding.py` + 搜索升级 + 降级 | 待启动 |
+| M2 | P2 画像双向同步 | jarvis `profile_bridge` + 图谱写入链路 | ✅ 2026-08-27 |
+| M3 | P3 语义检索 | `embedding.py` + 搜索升级 + 降级 | 🎯 **下一次目标**（已确认） |
 | M4 | P4 关联推荐 | 推荐算法 + API/MCP 暴露 | 待启动 |
-| M5 | P5 存储迁移 | Storage 抽象 + 迁移脚本 | 待启动 |
+| M5 | P5 存储迁移 | Storage 抽象 + 迁移脚本 | 待启动（数据量远未到，长期搁置） |
 
 每阶段独立交付：代码 + 单元测试 + 文档更新（README/docs 同步）+ 修复复盘（如涉及）。
 

@@ -1,6 +1,7 @@
 """
 MCP Server 单元测试
-覆盖只读工具的正常路径与写工具的错误/成功路径。
+覆盖只读工具的正常路径与写工具的错误/成功路径，
+以及 ingest_text 抽取工具（P2 链路）的预览/写入/报错/拦截四路径。
 写工具成功路径使用临时数据文件，不污染真实图谱。
 
 运行: python backend/test_mcp_server.py  （或 python -m unittest discover）
@@ -19,6 +20,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+import ingest
 import mcp_server
 from knowledge_graph import KnowledgeGraph
 
@@ -27,11 +29,12 @@ class McpServerTest(unittest.TestCase):
     """MCP Server 工具测试基类（真实数据只读）"""
 
     def test_tools_registered(self):
-        """12 个工具已注册"""
+        """13 个工具已注册（含 P2 新增的 ingest_text）"""
         tools = mcp_server.mcp._tool_manager._tools
         expected = {
             "add_entity", "add_relation", "common_neighbors", "find_paths",
             "get_entity", "get_neighbors", "get_profile", "get_stats",
+            "ingest_text",
             "list_entities", "list_relation_types", "list_types", "search_entity",
         }
         self.assertEqual(set(tools.keys()), expected)
@@ -96,6 +99,72 @@ class McpServerTest(unittest.TestCase):
                     mcp_server.add_relation(result["id"], result["id"], "HAS_SKILL")
                 )
                 self.assertTrue(rel["ok"])
+
+
+class McpIngestToolTest(unittest.TestCase):
+    """ingest_text MCP 工具测试（P2 链路：Agent 触发抽取 / 画像回写）
+    全部用临时图谱 + mock LLM，不碰真实数据、不发真实请求"""
+
+    # 模拟 LLM 返回的三元组（人物 + 技能 + 关系）
+    _PAYLOAD = {
+        "entities": [
+            {"name": "张三", "type": "Person", "description": "测试人物"},
+            {"name": "Rust", "type": "Skill"},
+        ],
+        "relations": [
+            {"source": "张三", "target": "Rust", "type": "HAS_SKILL"},
+        ],
+    }
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.kg = KnowledgeGraph(str(Path(self._tmpdir.name) / "graph.json"))
+        # 把模块级 kg 换成临时图谱（与写工具测试同样的隔离手法）
+        self._kg_patch = mock.patch.object(mcp_server, "kg", self.kg)
+        self._kg_patch.start()
+
+    def tearDown(self):
+        self._kg_patch.stop()
+        self._tmpdir.cleanup()
+
+    def test_dry_run_preview_no_write(self):
+        """dry_run 预览：返回抽取明细但不落库"""
+        with mock.patch.object(ingest, "call_llm",
+                               return_value=json.dumps(self._PAYLOAD, ensure_ascii=False)):
+            result = json.loads(mcp_server.ingest_text("张三是一名后端工程师，擅长 Rust 系统开发", dry_run=True))
+        self.assertTrue(result["dry_run"])
+        self.assertEqual(len(result["created_entities"]), 2)
+        self.assertEqual(len(result["created_relations"]), 1)
+        self.assertEqual(len(self.kg.list_entities()), 0)  # 预览不写入
+
+    def test_confirm_write(self):
+        """dry_run=False 正式写入：实体与关系落库，来源标记正确"""
+        with mock.patch.object(ingest, "call_llm",
+                               return_value=json.dumps(self._PAYLOAD, ensure_ascii=False)):
+            result = json.loads(
+                mcp_server.ingest_text("张三是一名后端工程师，擅长 Rust 系统开发", dry_run=False, source="agent")
+            )
+        self.assertEqual(len(result["created_entities"]), 2)
+        entities = self.kg.list_entities()
+        self.assertEqual(len(entities), 2)
+        person = next(e for e in entities if e.name == "张三")
+        self.assertEqual(person.properties.get("source"), "agent")
+
+    def test_density_gate_rejects_without_llm(self):
+        """低密度文本被闸 ④ 拦截，不调 LLM、零写入"""
+        with mock.patch.object(ingest, "call_llm") as llm:
+            result = json.loads(mcp_server.ingest_text("你好", dry_run=False))
+            llm.assert_not_called()
+        self.assertIn("rejected", result["gate"])
+        self.assertEqual(len(self.kg.list_entities()), 0)
+
+    def test_llm_error_returns_error_json(self):
+        """IngestError 不中断 MCP 会话，返回 error + hint"""
+        with mock.patch.object(ingest, "call_llm",
+                               side_effect=ingest.IngestError("LLM 调用失败")):
+            result = json.loads(mcp_server.ingest_text("张三是一名后端工程师，擅长 Rust 系统开发", dry_run=True))
+        self.assertIn("error", result)
+        self.assertIn("hint", result)
 
 
 if __name__ == "__main__":

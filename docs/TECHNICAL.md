@@ -263,6 +263,7 @@ if __name__ == "__main__":
 | 图查询 | `get_neighbors` / `find_paths` / `common_neighbors` | 邻居/路径/共同邻居 |
 | 元数据 | `get_stats` / `list_types` / `list_relation_types` | 统计与类型表 |
 | 写入 | `add_entity` / `add_relation` | 新增实体/关系，复用引擎的乐观锁与备份 |
+| 抽取 | `ingest_text` | 文本交给第 8 节抽取管线（内置防噪闸与查重），`dry_run` 预览确认后写入；jarvis `/memory sync` 画像回写走此工具 |
 
 ### 7.3 权限模型
 
@@ -354,5 +355,5 @@ HTTP 错误会在接口 `detail` 中透出厂商返回的具体原因（欠费/�
 1. **存储层替换**：JSON → SQLite（`KnowledgeGraph` 内部实现替换，接口不变）
 2. **图数据库**：Kùzu（嵌入式，列式图存储）/ Neo4j（服务化），当路径查询变慢时
 3. **搜索升级**：SQLite FTS5 或 PostgreSQL 全文索引替代线性扫描；或 embedding 语义检索（P3）
-4. ~~**自动抽取**~~：✅ 已完成（P1，见第 8 节）；后续可补 MCP `ingest_text` 工具供 Agent 触发，查重可引入 embedding 相似度（依赖 P3）
+4. ~~**自动抽取**~~：✅ 已完成（P1，见第 8 节）；MCP `ingest_text` 工具已补（P2，jarvis 画像回写链路）；查重后续可引入 embedding 相似度（依赖 P3）
 5. **图片管理**：上传文件纳入备份/迁移范围，支持删除回收

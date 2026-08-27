@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
 
+import ingest as ingest_pipeline
 from knowledge_graph import KnowledgeGraph
 
 # 与 api.py 共用同一数据文件（clone 后先运行 python seed.py 生成）
@@ -35,7 +36,9 @@ mcp = FastMCP(
         "项目、工具、兴趣、任务与目标及其相互关系。查询用户信息时优先使用 "
         "get_profile 获取画像摘要；需要了解具体实体或关系时使用 search_entity、"
         "get_neighbors、find_paths。新增知识（实体/关系）前先通过 list_types / "
-        "list_relation_types 确认类型存在。"
+        "list_relation_types 确认类型存在。收到用户主动告知的新技能/项目/经历时，"
+        "优先用 ingest_text 走自动抽取管线（内置查重与防噪闸），先 dry_run 预览、"
+        "经用户确认后再正式写入。"
     ),
 )
 
@@ -197,6 +200,27 @@ def add_relation(
     if not relation:
         return _dumps({"error": "源实体或目标实体不存在"})
     return _dumps({"ok": True, "id": relation.id, "source": source, "target": target, "type": type})
+
+
+@mcp.tool()
+def ingest_text(text: str, dry_run: bool = True, source: str = "agent") -> str:
+    """把一段文本交给自动抽取管线，抽出「实体 + 关系」三元组写入图谱。
+    （P2 链路：供 jarvis 等 Agent 触发抽取 / 画像回写）
+
+    管线内置五道防噪闸（信息密度预检、价值预判、类型白名单、查重、人工确认），
+    闲聊/寒暄文本零写入。重复实体/关系自动跳过，可放心重复调用。
+    建议流程：先 dry_run=True 拿预览给用户确认，确认后同文本以 dry_run=False 正式写入。
+
+    @param text: 待抽取文本（如用户自述、会话提炼出的画像条目汇总）
+    @param dry_run: True 只返回预览不落库（默认，防噪闸 ⑤）；False 正式写入（写入前自动备份）
+    @param source: 来源标记，写入实体属性供溯源（agent / session / text）
+    """
+    try:
+        result = ingest_pipeline.ingest_text(kg, text, dry_run=dry_run, source=source)
+    except ingest_pipeline.IngestError as e:
+        # 可预期错误（配置缺失/LLM 失败/解析失败）→ 返回错误信息，不中断 MCP 会话
+        return _dumps({"error": str(e), "hint": "请检查 backend/ingest.toml 抽取模型配置"})
+    return _dumps(result)
 
 
 if __name__ == "__main__":
