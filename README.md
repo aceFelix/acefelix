@@ -10,6 +10,12 @@
 
 基于手动维护数据的个人知识图谱系统，支持实体和关系的增删改查、图结构查询，并提供宇宙银河主题的 3D 可视化展示。
 
+<p align="center">
+  <img src="assets/zhishitupu.png" alt="AceFelix 知识图谱：宇宙银河主题 3D 可视化" width="90%">
+  <br>
+  <sub>实体即行星：气态云带 / 海陆地貌 + 大气辉光，背景含星空、银河旋臂与星云</sub>
+</p>
+
 ## 功能特性
 
 - **知识图谱核心**：NetworkX 图引擎 + JSON 持久化，支持实体/关系增删改查
@@ -27,21 +33,26 @@
 
 ```
 acefelix/
-├── backend/                  # Python 后端
-│   ├── api.py                # FastAPI REST 服务（含图片上传、知识抽取、静态资源）
-│   ├── ingest.py             # GraphRAG 抽取管线（文本 → 三元组 → 查重 → 写入）
-│   ├── ingest.toml.example   # 抽取模型配置模板（真实配置不入库）
-│   ├── mcp_server.py         # MCP Server（Agent 接入，stdio）
-│   ├── knowledge_graph.py    # 知识图谱核心引擎（CRUD + 查询 + 持久化）
-│   ├── models.py             # 实体/关系数据模型
-│   ├── seed.py               # 种子数据初始化脚本
-│   ├── test_mcp_server.py    # MCP Server 单元测试
-│   ├── test_ingest.py        # 抽取管线单元测试（含闲聊零写入负例）
+├── backend/                  # Python 后端（详见 backend/README.md）
+│   ├── api.py                # 入口：FastAPI REST 服务（含图片上传、知识抽取、静态资源）
+│   ├── mcp_server.py         # 入口：MCP Server（Agent 接入，stdio）
+│   ├── app/                  # 核心包
+│   │   ├── ingest.py         # GraphRAG 抽取管线（文本 → 三元组 → 查重 → 写入）
+│   │   ├── knowledge_graph.py# 知识图谱核心引擎（CRUD + 查询 + 持久化）
+│   │   └── models.py         # 实体/关系数据模型
+│   ├── config/
+│   │   └── ingest.toml.example# 抽取模型配置模板（真实配置不入库）
+│   ├── scripts/
+│   │   └── seed.py           # 种子数据初始化脚本
+│   ├── tests/
+│   │   ├── test_mcp_server.py# MCP Server 单元测试
+│   │   └── test_ingest.py    # 抽取管线单元测试（含闲聊零写入负例）
 │   ├── requirements.txt
 │   ├── data/
 │   │   ├── graph.json        # 图谱数据文件
 │   │   └── backups/          # 滚动备份（保留 20 份）
 │   └── uploads/              # 上传的图片文件
+├── assets/                   # README 演示截图
 ├── skills/
 │   └── acefelix-knowledge/   # jarvis Skill（图谱使用指引，复制到 ~/.jarvis/skills/）
 ├── frontend/                 # Vue3 前端
@@ -71,6 +82,8 @@ acefelix/
 ## 快速开始
 
 > 完整步骤见 [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)。
+>
+> 💡 **Windows 一键启动**：直接双击 `start.bat`，自动拉起后端（:8800）与前端（:5173）并打开浏览器。
 
 ### 环境要求
 
@@ -83,7 +96,7 @@ acefelix/
 ```bash
 cd backend
 python -m pip install -r requirements.txt
-python seed.py          # 首次运行初始化种子数据（已有数据会跳过）
+python scripts/seed.py  # 首次运行初始化种子数据（已有数据会跳过）
 python api.py           # 启动 API 服务，监听 http://127.0.0.1:8800
 ```
 
@@ -110,10 +123,14 @@ python mcp_server.py          # 启动 MCP Server，通过 stdio 供 Agent 调�
 
 ### 4. 快速上手
 
-- 左侧面板管理实体与关系，⚙ 按钮可管理类型
+- 左侧面板管理实体与关系，⚙ 按钮可管理类型；底部统计栏展示实体/关系数与类型分布
 - 编辑实体时可在「图片属性」粘贴图片 URL 或上传本地图片
 - 点击 3D 节点查看详情（属性中的图片自动渲染）；工具条提供「聚焦」「路径」「重置」
 - 右上角搜索框可全文搜索实体
+
+<p align="center">
+  <img src="assets/zhishitupu2.png" alt="实体管理面板与类型过滤" width="90%">
+</p>
 
 ## API 接口
 
@@ -152,7 +169,7 @@ curl -X POST http://127.0.0.1:8800/api/ingest -H "Content-Type: application/json
 ```
 
 - **防噪**：内置五道闸（不挂聊天实时链路/价值预判/类型白名单/密度预检/人工确认），闲聊寒暄零写入；详见 [docs/TECHNICAL.md](./docs/TECHNICAL.md) 第 8 节
-- **模型配置**：默认走 `DASHSCOPE_API_KEY` 环境变量 + DashScope `qwen-flash`；可复制 `backend/ingest.toml.example` 为 `backend/ingest.toml` 自定义（不入库）
+- **模型配置**：默认走 `DASHSCOPE_API_KEY` 环境变量 + DashScope `qwen-flash`；可复制 `backend/config/ingest.toml.example` 为 `backend/config/ingest.toml` 自定义（不入库）
 - **安全**：`dry_run=true` 先预览再写入；写入前自动备份，可用 `data/backups/` 回滚
 
 ## Agent 接入
@@ -191,7 +208,7 @@ cp -r skills/acefelix-knowledge ~/.jarvis/skills/
 | `get_stats` / `list_types` / `list_relation_types` | 只读 | 统计与类型表 |
 | `add_entity` / `add_relation` | 写入 | 新增实体/关系（客户端默认需用户确认） |
 
-> 数据文件 `backend/data/graph.json` 为本地个人数据，不入库；clone 后运行 `python seed.py` 生成初始图谱。
+> 数据文件 `backend/data/graph.json` 为本地个人数据，不入库；clone 后运行 `python scripts/seed.py` 生成初始图谱。
 
 ## 未来规划
 
@@ -199,11 +216,13 @@ cp -r skills/acefelix-knowledge ~/.jarvis/skills/
 
 - [x] 与 JARVIS 联动，让 JARVIS 更懂用户（MCP Server 接入已完成）
 - [x] P1 GraphRAG 自动抽取：从聊天记录/文档中自动抽取实体关系（`ingest.py` + `/api/ingest`，五道防噪闸）
-- [ ] P2 画像双向同步：会话提炼结果回写图谱，图谱画像注入系统提示
+- [x] P2 画像双向同步：会话提炼结果经 `ingest_text` 回写图谱，图谱画像注入系统提示（2026-08-27）
 - [ ] P3 语义检索：embedding 语义搜索替代关键词匹配
 - [ ] P4 关联推荐：相似实体与潜在兴趣推荐
 - [ ] P5 数据量增大后迁移 SQLite / Kùzu / Neo4j
 
-## License
+## 贡献与许可
 
-[MIT](./LICENSE) © 2026 aceFelix
+欢迎通过 Issue 反馈问题、通过 PR 参与共建（提交前请确认后端单测通过、前端构建通过，文档同步更新）。
+
+本项目基于 [MIT License](./LICENSE) 开源，© 2026 aceFelix。
