@@ -621,11 +621,12 @@ defineExpose({ loadGraph, focusNode: (nodeId) => focusCamera(graphInstance, node
   background: rgba(30, 30, 48, 0.95);
 }
 
-/* 图查询工具条 */
+/* 图查询工具条：wrapper 被 App 提升为全屏背景层，
+   需右移避开左侧栏(300px)、下移避开顶栏(52px)，落在中央图谱区左上角 */
 .graph-toolbar {
   position: absolute;
-  top: 12px;
-  left: 12px;
+  top: 64px;
+  left: 312px;
   display: flex;
   gap: 6px;
   z-index: 10;
@@ -652,11 +653,11 @@ defineExpose({ loadGraph, focusNode: (nodeId) => focusCamera(graphInstance, node
   font-weight: 600;
 }
 
-/* 路径模式提示 */
+/* 路径模式提示：跟随工具条避让左侧栏与顶栏 */
 .path-hint {
   position: absolute;
-  top: 52px;
-  left: 12px;
+  top: 104px;
+  left: 312px;
   padding: 6px 12px;
   font-size: 12px;
   color: var(--accent, #4ecdc4);
@@ -667,11 +668,11 @@ defineExpose({ loadGraph, focusNode: (nodeId) => focusCamera(graphInstance, node
   backdrop-filter: blur(4px);
 }
 
-/* 路径结果面板 */
+/* 路径结果面板：同样避让左侧栏与顶栏 */
 .path-panel {
   position: absolute;
-  top: 84px;
-  left: 12px;
+  top: 136px;
+  left: 312px;
   width: 380px;
   max-width: calc(100% - 24px);
   max-height: 45%;
