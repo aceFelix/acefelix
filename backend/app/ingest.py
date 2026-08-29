@@ -11,7 +11,7 @@ GraphRAG 自动抽取管线（P1 版块）
   ⑤ 人工闸：支持 dry_run 预览，写入复用 KnowledgeGraph 的自动备份可回滚。
 
 LLM 走 OpenAI 兼容协议（默认 DashScope 兼容端点），仅用标准库 urllib，零新依赖。
-配置优先级：环境变量 > backend/ingest.toml > 内置默认值。
+配置优先级：环境变量 > backend/config/ingest.toml > 内置默认值。
 
 @author aceFelix
 """
@@ -48,8 +48,9 @@ DEFAULT_LLM_CONFIG: Dict[str, Any] = {
     "max_chars": DEFAULT_MAX_CHARS,
 }
 
-# 配置文件路径（可选存在；含密钥，已在 .gitignore 中排除）
-CONFIG_PATH = Path(__file__).parent / "ingest.toml"
+# 配置文件路径（可选存在；含密钥，已在 .gitignore 中排除）。
+# 目录重构后配置统一放 backend/config/，本文件在 app/ 下，故取上两级目录。
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "ingest.toml"
 
 
 class IngestError(RuntimeError):
@@ -63,7 +64,7 @@ class IngestError(RuntimeError):
 def load_llm_config() -> Dict[str, Any]:
     """
     加载抽取模型配置。
-    优先级：环境变量（INGEST_*）> backend/ingest.toml 的 [ingest] 段 > 内置默认值。
+    优先级：环境变量（INGEST_*）> backend/config/ingest.toml 的 [ingest] 段 > 内置默认值。
     api_key 额外回退到 DASHSCOPE_API_KEY / OPENAI_API_KEY 环境变量。
     """
     cfg = dict(DEFAULT_LLM_CONFIG)
@@ -119,7 +120,7 @@ def call_llm(system_prompt: str, user_prompt: str, cfg: Dict[str, Any]) -> str:
     if not cfg.get("api_key"):
         raise IngestError(
             "抽取模型 api_key 未配置：请设置环境变量 DASHSCOPE_API_KEY，"
-            "或在 backend/ingest.toml 的 [ingest] 段配置 api_key"
+            "或在 backend/config/ingest.toml 的 [ingest] 段配置 api_key"
         )
 
     url = cfg["base_url"].rstrip("/") + "/chat/completions"

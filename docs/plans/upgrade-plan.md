@@ -42,9 +42,9 @@
 
 ## 3. P1 · GraphRAG 自动抽取
 
-> ✅ **已交付（2026-08-26）**：`backend/ingest.py` 抽取管线 + `POST /api/ingest` / `POST /api/ingest/file` +
-> `test_ingest.py`（15 用例全过，含闲聊零写入负例）+ 真实 LLM 端到端验证。
-> 模型配置：`backend/ingest.toml`（模板 `ingest.toml.example`，支持 `api_key_env` 指定密钥环境变量；
+> ✅ **已交付（2026-08-26）**：`backend/app/ingest.py` 抽取管线 + `POST /api/ingest` / `POST /api/ingest/file` +
+> `tests/test_ingest.py`（15 用例全过，含闲聊零写入负例）+ 真实 LLM 端到端验证。
+> 模型配置：`backend/config/ingest.toml`（模板 `config/ingest.toml.example`，支持 `api_key_env` 指定密钥环境变量；
 > 因阿里云账号欠费，当前临时使用 DeepSeek `deepseek-v4-flash`，充值后改回 DashScope 即可）。
 > 待补：~~MCP `ingest_text` 工具~~ ✅ 已随 P2 补齐（2026-08-27）：Agent 触发抽取与 jarvis 画像回写共用该工具。
 
@@ -93,10 +93,10 @@ testing 要求：验收用例必须包含“闲聊文本输入 → 零实体写�
 
 | 文件 | 说明 |
 |---|---|
-| `backend/ingest.py`（新） | 抽取管线：文本 → 三元组 → 查重 → 写入 |
+| `backend/app/ingest.py`（新） | 抽取管线：文本 → 三元组 → 查重 → 写入（后随目录重构移入 app/） |
 | `backend/api.py` | 新增 `POST /api/ingest`（text/file/session） |
 | `backend/mcp_server.py` | 可选：`ingest_text` 工具（Agent 触发抽取） |
-| `backend/seed.py` | 生成少量"抽取示例"演示数据（可选） |
+| `backend/scripts/seed.py` | 生成少量"抽取示例"演示数据（可选） |
 
 ### 3.6 验收
 - 输入一段含人物/技能/项目关系的文本，可自动生成正确三元组并入库

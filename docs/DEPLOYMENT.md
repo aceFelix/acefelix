@@ -18,7 +18,7 @@
 ```bash
 cd backend
 python -m pip install -r requirements.txt   # 首次
-python seed.py                               # 首次初始化示例数据（已有数据跳过）
+python scripts/seed.py                       # 首次初始化示例数据（已有数据跳过）
 python api.py                                # 或：python -m uvicorn api:app --reload --port 8800
 ```
 
@@ -118,7 +118,7 @@ sudo apt install python3-venv nginx -y
 git clone https://github.com/aceFelix/acefelix.git && cd acefelix/backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python seed.py          # 初始化图谱数据（首次）
+python scripts/seed.py  # 初始化图谱数据（首次）
 ```
 
 设置环境变量并启动：
@@ -220,7 +220,7 @@ server {
 | `backend/data/graph.json` | 主数据（实体/关系/类型/版本） | **必须备份** |
 | `backend/data/backups/` | 每次保存前的滚动备份（保留 20 份） | 随主数据一起 |
 | `backend/uploads/` | 上传的图片文件 | 图片属性引用它们，**需一并备份** |
-| `backend/api.log` | 运行日志 | 按需 |
+| `backend/logs/api.log` | 运行日志 | 按需 |
 
 ### 4.2 手动备份
 

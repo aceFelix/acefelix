@@ -5,7 +5,7 @@
 #   - 前端：npm ci → vite build 构建验证
 #
 # 说明：backend/data/graph.json 为本地个人数据不入库，CI 中先运行
-# seed.py 生成种子数据，保证 test_mcp_server.py 可跑通。
+# scripts/seed.py 生成种子数据，保证 tests/test_mcp_server.py 可跑通。
 
 name: CI
 
@@ -45,16 +45,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Generate seed data
-        run: python seed.py
+        run: python scripts/seed.py
 
       - name: Syntax check
         run: python -m compileall -q .
 
       - name: Run tests
         run: |
-          python test_mcp_server.py
+          python tests/test_mcp_server.py
           # 抽取管线测试：LLM 全 mock，无需 API Key；覆盖五道防噪闸与查重（含闲聊零写入负例）
-          python test_ingest.py
+          python tests/test_ingest.py
 
   frontend:
     name: Frontend build

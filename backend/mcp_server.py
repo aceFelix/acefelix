@@ -16,15 +16,20 @@ AceFelix 知识图谱 MCP Server
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# jarvis 通过绝对路径启动本脚本（cwd 不在 backend/），
+# 显式把本目录加入模块搜索路径，保证 app 包可导入。
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from mcp.server.fastmcp import FastMCP
 
-import ingest as ingest_pipeline
-from knowledge_graph import KnowledgeGraph
+import app.ingest as ingest_pipeline
+from app.knowledge_graph import KnowledgeGraph
 
-# 与 api.py 共用同一数据文件（clone 后先运行 python seed.py 生成）
+# 与 api.py 共用同一数据文件（clone 后先运行 python scripts/seed.py 生成）
 DATA_PATH = Path(__file__).parent / "data" / "graph.json"
 kg = KnowledgeGraph(str(DATA_PATH))
 
@@ -219,7 +224,7 @@ def ingest_text(text: str, dry_run: bool = True, source: str = "agent") -> str:
         result = ingest_pipeline.ingest_text(kg, text, dry_run=dry_run, source=source)
     except ingest_pipeline.IngestError as e:
         # 可预期错误（配置缺失/LLM 失败/解析失败）→ 返回错误信息，不中断 MCP 会话
-        return _dumps({"error": str(e), "hint": "请检查 backend/ingest.toml 抽取模型配置"})
+        return _dumps({"error": str(e), "hint": "请检查 backend/config/ingest.toml 抽取模型配置"})
     return _dumps(result)
 
 

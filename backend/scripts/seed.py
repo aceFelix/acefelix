@@ -10,11 +10,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# 添加当前目录到 path，方便直接运行
-sys.path.insert(0, str(Path(__file__).parent))
+# 添加 backend 根目录到 path（本脚本在 scripts/ 下），方便直接运行
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from knowledge_graph import KnowledgeGraph
-from models import EntityType, RelationType
+from app.knowledge_graph import KnowledgeGraph
+from app.models import EntityType, RelationType
 
 
 def seed_data(kg: KnowledgeGraph) -> None:
@@ -192,6 +192,7 @@ def seed_data(kg: KnowledgeGraph) -> None:
 
 
 if __name__ == "__main__":
-    data_path = Path(__file__).parent / "data" / "graph.json"
+    # 数据文件在 backend/data/，本脚本在 scripts/ 下，取上级目录。
+    data_path = Path(__file__).resolve().parent.parent / "data" / "graph.json"
     kg = KnowledgeGraph(str(data_path))
     seed_data(kg)

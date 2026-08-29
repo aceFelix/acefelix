@@ -4,7 +4,7 @@ MCP Server 单元测试
 以及 ingest_text 抽取工具（P2 链路）的预览/写入/报错/拦截四路径。
 写工具成功路径使用临时数据文件，不污染真实图谱。
 
-运行: python backend/test_mcp_server.py  （或 python -m unittest discover）
+运行: python backend/tests/test_mcp_server.py  （或 python -m unittest discover）
 
 @author aceFelix
 """
@@ -18,11 +18,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).parent))
+# 测试在 tests/ 下，把 backend 根目录加入搜索路径以导入 app 包与入口脚本。
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import ingest
 import mcp_server
-from knowledge_graph import KnowledgeGraph
+from app import ingest
+from app.knowledge_graph import KnowledgeGraph
 
 
 class McpServerTest(unittest.TestCase):

@@ -33,10 +33,12 @@ AceFelix 是一个**个人知识图谱系统**，帮助个人以图结构组织�
 ┌──────────────────────────────▼──────────────────────────┐
 │                    FastAPI 后端                          │
 │  ┌───────────────────────────────────────────────────┐  │
-│  │ api.py            路由层（REST + 上传 + 静态资源）   │  │
-│  │ knowledge_graph.py 核心引擎（图模型 / CRUD / 查询） │  │
-│  │ models.py          数据模型（Entity / Relation）    │  │
-│  │ seed.py            种子数据初始化                   │  │
+│  │ api.py            入口/路由层（REST + 上传 + 静态）  │  │
+│  │ app/              核心包                           │  │
+│  │   knowledge_graph.py 图引擎（图模型 / CRUD / 查询） │  │
+│  │   models.py       数据模型（Entity / Relation）     │  │
+│  │   ingest.py       抽取管线（文本 → 三元组 → 写入）   │  │
+│  │ scripts/seed.py   种子数据初始化                   │  │
 │  └──────────────────────────┬────────────────────────┘  │
 │              ┌──────────────┼──────────────┐            │
 │              ▼              ▼              ▼            │
@@ -78,11 +80,13 @@ AceFelix 是一个**个人知识图谱系统**，帮助个人以图结构组织�
 
 | 模块 | 职责 | 关键点 |
 |---|---|---|
-| `models.py` | 数据模型 | `Entity` / `Relation` dataclass，`EntityType` / `RelationType` 枚举，默认颜色/标签映射 |
-| `knowledge_graph.py` | 核心引擎 | 封装 `nx.DiGraph`；实体/关系 CRUD；动态类型表；图查询；JSON 持久化 + 乐观锁 + 备份 |
-| `api.py` | 路由层 | REST 端点；类型管理；图查询接口；`/api/upload` 图片上传；`/uploads` 静态资源挂载 |
+| `app/models.py` | 数据模型 | `Entity` / `Relation` dataclass，`EntityType` / `RelationType` 枚举，默认颜色/标签映射 |
+| `app/knowledge_graph.py` | 核心引擎 | 封装 `nx.DiGraph`；实体/关系 CRUD；动态类型表；图查询；JSON 持久化 + 乐观锁 + 备份 |
+| `app/ingest.py` | 抽取管线 | 文本 → 三元组 → 五道防噪闸 → 查重 → 写入；配置读 `config/ingest.toml` |
+| `api.py` | 入口/路由层 | REST 端点；类型管理；图查询接口；`/api/upload` 图片上传；`/uploads` 静态资源挂载 |
 | `mcp_server.py` | Agent 接入 | FastMCP stdio server；画像/搜索/图查询只读工具 + 新增实体/关系写工具（客户端侧默认需确认） |
-| `seed.py` | 数据初始化 | 首次运行时填充示例数据（已有数据跳过） |
+| `scripts/seed.py` | 数据初始化 | 首次运行时填充示例数据（已有数据跳过） |
+| `tests/` | 单元测试 | `test_ingest.py`（LLM 全 mock）+ `test_mcp_server.py` |
 | `requirements.txt` | 依赖清单 | Python 运行依赖 |
 
 ### 3.2 前端
@@ -160,11 +164,17 @@ AI Agent 决定查询图谱
 ```
 acefelix/
 ├── backend/
-│   ├── api.py                  # FastAPI 路由 + 上传 + 静态挂载
-│   ├── mcp_server.py           # MCP Server（Agent 接入）
-│   ├── knowledge_graph.py      # 图核心引擎
-│   ├── models.py               # 数据模型
-│   ├── seed.py                 # 种子数据
+│   ├── api.py                  # 入口：FastAPI 路由 + 上传 + 静态挂载
+│   ├── mcp_server.py           # 入口：MCP Server（Agent 接入）
+│   ├── app/                    # 核心包（数据模型 / 图引擎 / 抽取管线）
+│   │   ├── knowledge_graph.py  # 图核心引擎
+│   │   ├── models.py           # 数据模型
+│   │   └── ingest.py           # 抽取管线（文本 → 三元组 → 写入）
+│   ├── config/
+│   │   └── ingest.toml.example # 抽取模型配置模板（真实配置不入库）
+│   ├── scripts/
+│   │   └── seed.py             # 种子数据
+│   ├── tests/                  # 单元测试（LLM 全 mock）
 │   ├── requirements.txt
 │   ├── data/
 │   │   ├── graph.json          # 主数据文件（本地数据，不入库）

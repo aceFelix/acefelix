@@ -3,7 +3,7 @@
 覆盖五道防噪闸与查重逻辑，LLM 调用全部 mock，不产生真实网络请求；
 写入路径使用临时图谱文件，不污染真实数据。
 
-运行: python backend/test_ingest.py （或 python -m unittest discover）
+运行: python backend/tests/test_ingest.py （或 python -m unittest discover）
 
 @author aceFelix
 """
@@ -17,10 +17,11 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).parent))
+# 测试在 tests/ 下，把 backend 根目录加入搜索路径以导入 app 包。
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import ingest
-from knowledge_graph import KnowledgeGraph
+from app import ingest
+from app.knowledge_graph import KnowledgeGraph
 
 
 def _mock_llm(payload: dict):

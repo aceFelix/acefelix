@@ -18,8 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from ingest import IngestError, ingest_text, session_to_text
-from knowledge_graph import KnowledgeGraph
+from app.ingest import IngestError, ingest_text, session_to_text
+from app.knowledge_graph import KnowledgeGraph
 
 # 初始化 FastAPI 应用
 app = FastAPI(

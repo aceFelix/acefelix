@@ -50,7 +50,7 @@
 - 图节点/边只做查询加速与算法支撑，CRUD 永远以字典为准再同步图结构
 
 ```python
-# knowledge_graph.py:41
+# app/knowledge_graph.py
 self.graph = nx.DiGraph()
 self._entities: Dict[str, Entity] = {}
 self._relations: Dict[str, Relation] = {}
@@ -310,7 +310,7 @@ MCP 协议层面工具**没有只读/写入标记**，权限由客户端侧控�
 
 ### 8.3 抽取模型配置
 
-配置优先级：**环境变量 > `backend/ingest.toml` > 内置默认值**（模板见 `ingest.toml.example`，
+配置优先级：**环境变量 > `backend/config/ingest.toml` > 内置默认值**（模板见 `config/ingest.toml.example`，
 真实配置含密钥已被 .gitignore 排除）：
 
 | 字段 | 默认值 | 说明 |
@@ -336,7 +336,7 @@ HTTP 错误会在接口 `detail` 中透出厂商返回的具体原因（欠费/�
 返回统一结果结构：`created_entities` / `created_relations` /
 `skipped_duplicate_*`（查重）/ `pending_review`（待人工裁决）/
 `skipped_relations`（含拒绝原因）/ `gate`（闸门判定）。
-单元测试见 `test_ingest.py`（LLM 全 mock，含闲聊零写入负例）。
+单元测试见 `tests/test_ingest.py`（LLM 全 mock），含闲聊零写入负例。
 
 ## 9. 已知限制
 

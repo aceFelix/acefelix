@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional
 
 import networkx as nx
 
-from models import ENTITY_COLORS, RELATION_LABELS, Entity, EntityType, Relation, RelationType
+from app.models import ENTITY_COLORS, RELATION_LABELS, Entity, EntityType, Relation, RelationType
 
 
 class KnowledgeGraph:
