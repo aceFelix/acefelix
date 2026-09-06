@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -60,6 +61,19 @@ UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 # 挂载静态文件服务，前端可通过 /uploads/{filename} 访问上传的图片
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
+# 文档上传存储目录（实体属性文档附件）：与图片目录分离，
+# 前端按 /doc-uploads/ 前缀识别文档属性，避免被 /uploads/ 图片规则误判
+DOC_UPLOAD_DIR = Path(__file__).parent / "doc_uploads"
+DOC_UPLOAD_DIR.mkdir(exist_ok=True)
+# 挂载静态文件服务，前端可通过 /doc-uploads/{filename} 访问上传的文档
+app.mount("/doc-uploads", StaticFiles(directory=str(DOC_UPLOAD_DIR)), name="doc-uploads")
+
+# 允许的文档扩展名白名单：浏览器对 .docx/.xmind 上报的 MIME 不可靠
+#（常为 application/octet-stream），故按扩展名校验而非 MIME
+DOC_EXT_WHITELIST = {".pdf", ".md", ".txt", ".docx", ".xmind"}
+# 单文档大小上限（20MB），防止误传大文件撑爆磁盘
+DOC_MAX_SIZE = 20 * 1024 * 1024
 
 
 # ------------------------------------------------------------------ #
@@ -503,6 +517,29 @@ def upload_file(file: UploadFile = File(...)) -> Dict[str, str]:
     with save_path.open("wb") as f:
         f.write(file.file.read())
     return {"url": f"/uploads/{filename}"}
+
+
+@app.post("/api/upload/doc")
+def upload_doc(file: UploadFile = File(...)) -> Dict[str, Any]:
+    """上传文档（.pdf/.md/.txt/.docx/.xmind）并返回访问 URL，供实体属性引用
+
+    与图片上传的差异：按扩展名白名单校验（浏览器上报的文档 MIME 不可靠）；
+    文件名保留原始名称（清洗非法字符 + 短 UUID 前缀防冲突），便于前端展示。
+    """
+    original = Path(file.filename or "")
+    ext = original.suffix.lower()
+    # 扩展名白名单校验：非文档类型直接拒绝
+    if ext not in DOC_EXT_WHITELIST:
+        raise HTTPException(status_code=400, detail="仅支持 .pdf/.md/.txt/.docx/.xmind 文档文件")
+    content = file.file.read()
+    if len(content) > DOC_MAX_SIZE:
+        raise HTTPException(status_code=400, detail="文档大小超过 20MB 限制")
+    # 清洗原始文件名：去除路径分隔符/Windows 非法字符/空白，防路径穿越；
+    # 截断 60 字符防超长文件名；清洗后为空时兜底 "doc"
+    safe_stem = re.sub(r'[\\/:*?"<>|\s]+', "_", original.stem).strip("_")[:60] or "doc"
+    filename = f"{uuid.uuid4().hex[:8]}_{safe_stem}{ext}"
+    (DOC_UPLOAD_DIR / filename).write_bytes(content)
+    return {"url": f"/doc-uploads/{filename}", "name": file.filename, "size": len(content)}
 
 
 # ------------------------------------------------------------------ #

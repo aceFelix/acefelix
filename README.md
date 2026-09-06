@@ -24,7 +24,7 @@
 - **动态类型**：实体类型与关系类型支持增删改查、改色、改名（级联更新）、中文标签，删除有保护
 - **图查询**：邻居子图、两点间关联路径、共同邻居、搜索
 - **交互模式**：单击高亮一跳关系、聚焦两跳深挖、路径查询、一键重置
-- **实体管理**：列表展示、类型过滤、名称搜索、增删改查，属性支持**图片 URL 与本地上传**
+- **实体管理**：列表展示、类型过滤、名称搜索、增删改查，属性支持**图片与文档（.pdf/.md/.txt/.docx/.xmind）的 URL 引用与本地上传**
 - **数据保护**：乐观锁防并发覆盖，每次保存自动滚动备份（保留 20 份），原子写入防损坏
 - **统计信息**：实体数、关系数、类型分布
 - **Agent 接入**：MCP Server 将图谱以标准协议暴露给任意 AI Agent（jarvis、Claude Desktop 等），Agent 可查询画像、搜索实体、探索关联，经确认后新增实体/关系
@@ -46,12 +46,14 @@ acefelix/
 │   │   └── seed.py           # 种子数据初始化脚本
 │   ├── tests/
 │   │   ├── test_mcp_server.py# MCP Server 单元测试
-│   │   └── test_ingest.py    # 抽取管线单元测试（含闲聊零写入负例）
+│   │   ├── test_ingest.py    # 抽取管线单元测试（含闲聊零写入负例）
+│   │   └── test_upload_api.py# 文档上传接口测试（白名单/大小/文件名清洗）
 │   ├── requirements.txt
 │   ├── data/
 │   │   ├── graph.json        # 图谱数据文件
 │   │   └── backups/          # 滚动备份（保留 20 份）
-│   └── uploads/              # 上传的图片文件
+│   ├── uploads/              # 上传的图片文件
+│   └── doc_uploads/          # 上传的文档文件（.pdf/.md/.txt/.docx/.xmind）
 ├── assets/                   # README 演示截图
 ├── skills/
 │   └── acefelix-knowledge/   # jarvis Skill（图谱使用指引，复制到 ~/.jarvis/skills/）
@@ -63,8 +65,9 @@ acefelix/
 │   │   ├── utils/            # 公共工具（排序/属性识别/行星纹理/宇宙场景/相机/标签层）
 │   │   └── components/
 │   │       ├── Graph3D.vue            # 3D 可视化渲染骨架（交互编排，场景/纹理/相机/标签拆分至 utils）
-│   │       ├── EntityPanel.vue        # 实体管理面板（含图片属性）
+│   │       ├── EntityPanel.vue        # 实体管理面板（含图片/文档属性）
 │   │       ├── RelationPanel.vue      # 关系管理面板
+│   │       ├── ReaderPanel.vue        # 阅读窗（图片/PDF/txt/md/docx 中间区域就地浏览）
 │   │       ├── TypeManager.vue        # 实体类型管理
 │   │       ├── RelationTypeManager.vue # 关系类型管理
 │   │       └── StatsBar.vue           # 统计栏组件
@@ -124,8 +127,8 @@ python mcp_server.py          # 启动 MCP Server，通过 stdio 供 Agent 调�
 ### 4. 快速上手
 
 - 左侧面板管理实体与关系，⚙ 按钮可管理类型；底部统计栏展示实体/关系数与类型分布
-- 编辑实体时可在「图片属性」粘贴图片 URL 或上传本地图片
-- 点击 3D 节点查看详情（属性中的图片自动渲染）；工具条提供「聚焦」「路径」「重置」
+- 编辑实体时可在「图片属性」粘贴图片 URL 或上传本地图片；在「文档属性」粘贴文档 URL 或上传本地文档（.pdf/.md/.txt/.docx/.xmind）
+- 点击 3D 节点查看详情（属性中的图片自动渲染，文档展示为 📄 文件名链接）；左侧实体列表同步高亮选中项并自动滚入可见区；点击图片/文档在中间阅读窗就地浏览（图片/PDF/txt/Markdown/docx 内嵌展示，xmind 降级新窗口打开），Esc 或点遮罩关闭；工具条提供「聚焦」「路径」「重置」
 - 右上角搜索框可全文搜索实体
 
 <p align="center">
@@ -154,6 +157,7 @@ python mcp_server.py          # 启动 MCP Server，通过 stdio 供 Agent 调�
 | POST | /api/ingest | 文本抽取入库（dry_run 预览，闲聊零写入） |
 | POST | /api/ingest/file | 上传 .txt/.md/.json 文件抽取 |
 | POST | /api/upload | 上传图片 |
+| POST | /api/upload/doc | 上传文档（.pdf/.md/.txt/.docx/.xmind，上限 20MB） |
 
 完整请求/响应示例见 [docs/API.md](./docs/API.md)，FastAPI 交互文档见 `http://127.0.0.1:8800/docs`。
 

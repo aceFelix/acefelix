@@ -8,10 +8,11 @@ import { ref, computed, onMounted } from 'vue'
 import { api } from './api'
 import { API_BASE } from './config/api.config'
 import { nameCompare } from './utils/sort'
-import { isImageProp, isWebUrl } from './utils/property'
+import { isImageProp, isWebUrl, isDocProp, docFileName } from './utils/property'
 import Graph3D from './components/Graph3D.vue'
 import EntityPanel from './components/EntityPanel.vue'
 import RelationPanel from './components/RelationPanel.vue'
+import ReaderPanel from './components/ReaderPanel.vue'
 import StatsBar from './components/StatsBar.vue'
 
 // 元数据
@@ -138,18 +139,49 @@ function isImage(key, value) {
 }
 
 /**
- * 判断属性值是否为网站链接（非图片的 http 地址，详情中渲染为可点击链接）
+ * 判断属性值是否为网站链接（非图片、非文档的 http 地址，详情中渲染为可点击链接）
  */
 function isLink(key, value) {
   return isWebUrl(key, value)
 }
 
 /**
- * 补全图片地址
+ * 判断属性值是否为文档链接（.pdf/.md/.txt/.docx/.xmind，
+ * 详情中渲染为 📄 + 文件名链接，点击新窗口预览/下载）
+ */
+function isDoc(key, value) {
+  return isDocProp(key, value)
+}
+
+/**
+ * 补全资源地址（图片/文档相对路径补成后端绝对 URL）
  */
 function imageSrc(url) {
   if (url.startsWith('http')) return url
   return `${API_BASE}${url}`
+}
+
+// 阅读器当前项 { url, title }，null = 关闭
+const readerItem = ref(null)
+
+/**
+ * 在中间区域就地打开阅读器：图片/PDF/txt/md/docx 内嵌展示，
+ * 其他格式（xmind）由 ReaderPanel 降级为新窗口打开/下载
+ * @param {string} val - 属性的 URL 值
+ */
+function openReader(val) {
+  if (!val) return
+  readerItem.value = { url: imageSrc(val), title: docFileName(val) || val }
+}
+
+/**
+ * 切换左侧 Tab；切回实体 Tab 时补滚列表到当前选中项
+ * （在关系 Tab 期间选中节点时列表被 v-show 隐藏，滚动不生效）
+ */
+function switchTab(tab) {
+  const changed = activeTab.value !== tab
+  activeTab.value = tab
+  if (changed && tab === 'entity') entityPanelRef.value?.scrollToSelected?.()
 }
 
 onMounted(() => init())
@@ -188,12 +220,12 @@ onMounted(() => init())
           <button
             class="tab"
             :class="{ active: activeTab === 'entity' }"
-            @click="activeTab = 'entity'"
+            @click="switchTab('entity')"
           >实体 ({{ entities.length }})</button>
           <button
             class="tab"
             :class="{ active: activeTab === 'relation' }"
-            @click="activeTab = 'relation'"
+            @click="switchTab('relation')"
           >关系</button>
         </div>
         <div class="tab-content">
@@ -240,11 +272,21 @@ onMounted(() => init())
               <div class="prop-list">
                 <div class="prop-item" v-for="(val, key) in selectedEntity.properties" :key="key">
                   <span class="prop-key">{{ key }}</span>
+                  <!-- 图片：缩略图展示，点击在中间阅读窗就地预览 -->
                   <template v-if="isImage(key, val)">
-                    <a :href="imageSrc(val)" target="_blank" class="prop-image-link">
+                    <a :href="imageSrc(val)" class="prop-image-link" :title="val + '（点击就地预览）'"
+                       @click.prevent="openReader(val)">
                       <img :src="imageSrc(val)" class="prop-image" />
                     </a>
                   </template>
+                  <!-- 文档附件：📄 + 文件名，点击在中间阅读窗预览（xmind 降级新窗口） -->
+                  <a
+                    v-else-if="isDoc(key, val)"
+                    :href="imageSrc(val)"
+                    class="prop-val prop-doc"
+                    :title="val + '（点击就地预览）'"
+                    @click.prevent="openReader(val)"
+                  >📄 {{ docFileName(val) }}</a>
                   <a v-else-if="isLink(key, val)" :href="val" target="_blank" class="prop-val prop-link">{{ val }}</a>
                   <span v-else class="prop-val">{{ val }}</span>
                 </div>
@@ -254,6 +296,9 @@ onMounted(() => init())
         </div>
       </aside>
     </div>
+
+    <!-- 阅读窗：实体属性的图片/文档在中间区域就地展示（点击遮罩或 Esc 关闭） -->
+    <ReaderPanel v-if="readerItem" :item="readerItem" @close="readerItem = null" />
 
     <!-- 底部统计栏 -->
     <footer>
@@ -450,6 +495,17 @@ onMounted(() => init())
   text-align: right;
 }
 .prop-link:hover {
+  text-decoration: underline;
+}
+/* 文档链接类属性（pdf/md/txt/docx/xmind）：📄 + 可读文件名，点击新窗口预览/下载 */
+.prop-doc {
+  color: var(--accent, #4ecdc4);
+  text-decoration: none;
+  word-break: break-all;
+  text-align: right;
+  max-width: 65%;
+}
+.prop-doc:hover {
   text-decoration: underline;
 }
 .prop-image {

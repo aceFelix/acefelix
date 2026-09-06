@@ -211,9 +211,9 @@ for hops in range(1, max_hops + 1):
 
 拆分原则：工具模块不依赖组件内部状态（依赖倒置，回调/参数注入），可独立测试与复用。
 
-## 6. 图片上传
+## 6. 文件上传（图片与文档）
 
-### 6.1 后端
+### 6.1 后端：图片上传
 
 ```python
 @app.post("/api/upload")
@@ -228,12 +228,53 @@ def upload_file(file: UploadFile = File(...)):
 - 图片保存到 `backend/uploads/`，通过 `app.mount("/uploads", StaticFiles(...))` 提供静态访问
 - 文件名用 UUID，天然防冲突、防路径穿越
 
-### 6.2 前端
+### 6.2 后端：文档上传
 
-- `api.uploadFile(file)` 使用 `FormData` 上传（不能走通用 JSON request）
-- 编辑弹窗「图片属性」区：URL 粘贴添加 / 本地文件上传
-- 详情面板按 `utils/property.js` 的 `isImageProp(key, val)` 判断属性值：图片渲染为 `<img>`，普通网站链接（如 `website`）渲染为可点击 `<a>`；识别规则 = `/uploads/` 目录 ∨ 图片语义键名（image/avatar/logo…）∨ 图片扩展名兜底
+```python
+@app.post("/api/upload/doc")
+def upload_doc(file: UploadFile = File(...)):
+    # 校验扩展名 ∈ {.pdf, .md, .txt, .docx, .xmind}，大小 ≤ 20MB
+    # 文件名清洗：去路径分隔符/非法字符防穿越，短 UUID 前缀防冲突
+    filename = f"{uuid.uuid4().hex[:8]}_{safe_stem}{ext}"
+    return {"url": f"/doc-uploads/{filename}", "name": ..., "size": ...}
+```
+
+- 文档保存到 `backend/doc_uploads/`，挂载 `/doc-uploads` 静态访问，**与图片目录分离**：
+  前端 `isImageProp` 把 `/uploads/` 前缀视为图片，若混存会把文档误判成图片
+- 按**扩展名白名单**而非 MIME 校验：浏览器对 .docx/.xmind（实为 zip）常上报
+  `application/octet-stream`，MIME 不可靠
+- 保留原始文件名（清洗后）便于前端展示，接口测试见 `tests/test_upload_api.py`
+  （白名单/大小限制/路径穿越清洗/静态访问 + 图片接口回归）
+
+### 6.3 前端
+
+- `api.uploadFile(file)` / `api.uploadDoc(file)` 共用 `uploadRequest` 封装（FormData 上传，不能走通用 JSON request）
+- 编辑弹窗「图片属性」/「文档属性」区：URL 粘贴添加 / 本地文件上传，键名自动去重（base, base_1, ...）
+- 详情面板按 `utils/property.js` 判断属性值渲染方式：
+  - `isImageProp`：`/uploads/` 目录 ∨ 图片语义键名（image/avatar/logo…）∨ 图片扩展名兜底 → `<img>`
+  - `isDocProp`：`/doc-uploads/` 目录 ∨ 文档扩展名（.pdf/.md/.txt/.docx/.xmind）→ 📄 + 文件名链接（`docFileName` 去 UUID 前缀），点击在阅读窗就地预览（见 6.4）
+  - `isWebUrl`：其余 http 链接（如 website）→ 可点击 `<a>`
 - 存储的是 URL 字符串（而非 base64），避免撑爆 `graph.json`
+
+### 6.4 阅读窗（ReaderPanel，就地预览）
+
+详情面板点击图片缩略图或 📄 文档链接，在中间区域弹出毛玻璃阅读窗（`ReaderPanel.vue`），按扩展名分流渲染：
+
+| 格式 | 渲染方式 | 依赖 |
+|---|---|---|
+| 图片（png/jpg/gif/webp/svg…） | `<img>` 自适应展示 | 无 |
+| PDF | `<iframe>` 内嵌浏览器自带查看器（翻页/缩放/搜索） | 无 |
+| Markdown | fetch 文本 → `marked` 渲染 → **`DOMPurify` 消毒（防 XSS，必须）** | marked + dompurify |
+| txt | fetch 文本 → `<pre>` 原样展示 | 无 |
+| docx | fetch ArrayBuffer → `mammoth` 转 HTML → **`DOMPurify` 消毒**；动态 `import('mammoth/mammoth.browser')` 按需加载（独立 chunk ~500KB，不进主包）；文字/标题/表格/列表保真良好，复杂排版保真度有限 | mammoth |
+| xmind | 降级：提示 + 「新窗口打开/下载」按钮（二期计划 zip 解析 + 导图渲染） | 无 |
+
+关键设计：
+
+- 全屏模态遮罩（z-index 8：高于侧栏/状态栏、低于顶栏），点遮罩空白或 Esc 关闭；`pointer-events: auto` 恢复交互（布局层默认穿透）
+- 头部常驻「↗ 新窗口」兜底链接；任何加载失败（加密 PDF、超大文件、网络错误）均降级提示，不白屏
+- md/txt/docx 需跨端口 fetch 静态文件：后端 CORSMiddleware 覆盖 StaticFiles 挂载路由，预检已验证通过
+- 后端零改动（静态服务已就位），纯前端功能
 
 ## 7. MCP Server（Agent 接入）
 

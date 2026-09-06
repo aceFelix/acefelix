@@ -391,6 +391,35 @@ curl -X POST http://127.0.0.1:8800/api/upload \
 
 **失败**：400 `{"detail": "仅支持图片文件"}`（MIME 非图片类型）
 
+### POST /api/upload/doc
+
+上传文档（multipart/form-data，字段名 `file`），供实体属性引用。
+
+- **允许扩展名**：`.pdf` / `.md` / `.txt` / `.docx` / `.xmind`（按扩展名白名单校验，浏览器上报的文档 MIME 不可靠）
+- **大小上限**：20MB
+- **文件名**：保留原始名称（清洗路径分隔符/非法字符，防路径穿越），拼接短 UUID 前缀防冲突
+
+```bash
+curl -X POST http://127.0.0.1:8800/api/upload/doc \
+  -F "file=@./简历.pdf"
+```
+
+**响应**
+
+```json
+{
+  "url": "/doc-uploads/3f2a9c1e_简历.pdf",
+  "name": "简历.pdf",
+  "size": 102400
+}
+```
+
+访问文档：`http://127.0.0.1:8800/doc-uploads/{filename}`（浏览器预览或下载）
+
+**失败**：
+- 400 `{"detail": "仅支持 .pdf/.md/.txt/.docx/.xmind 文档文件"}`（扩展名不在白名单）
+- 400 `{"detail": "文档大小超过 20MB 限制"}`（超过大小上限）
+
 ---
 
 ## 10. 静态资源
@@ -398,5 +427,6 @@ curl -X POST http://127.0.0.1:8800/api/upload \
 | 路径 | 说明 |
 |---|---|
 | `/uploads/{filename}` | 上传的图片文件 |
+| `/doc-uploads/{filename}` | 上传的文档文件（pdf/md/txt/docx/xmind） |
 | `/docs` | FastAPI Swagger UI |
 | `/redoc` | ReDoc 文档 |

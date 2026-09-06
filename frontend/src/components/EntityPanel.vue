@@ -4,11 +4,11 @@
   @author aceFelix
 -->
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { api } from '../api'
 import { API_BASE } from '../config/api.config'
 import { nameCompare } from '../utils/sort'
-import { isImageProp } from '../utils/property'
+import { isImageProp, isDocProp, docFileName } from '../utils/property'
 import TypeManager from './TypeManager.vue'
 
 const props = defineProps({
@@ -31,6 +31,30 @@ const filterType = ref('')
 const searchQuery = ref('')
 const showTypeManager = ref(false)
 const hoveredId = ref('')
+const listRef = ref(null) // 实体列表滚动容器，用于选中项自动滚入可见区
+
+// 选中实体变化时（含 3D 图节点点击、搜索聚焦等外部来源），
+// 自动将列表滚动到选中项：避免高亮已生效但在滚动区外不可见，看起来像「没选中」
+watch(
+  () => props.selectedId,
+  (id) => {
+    if (id) scrollToSelected()
+  }
+)
+
+/**
+ * 将列表滚动到当前选中项（供外部调用：如从关系 Tab 切回实体 Tab 时补滚，
+ * 因 v-show 隐藏期间 scrollIntoView 不生效）
+ */
+function scrollToSelected() {
+  const id = props.selectedId
+  if (!id) return
+  nextTick(() => {
+    const el = listRef.value?.querySelector(`.entity-item[data-id="${CSS.escape(id)}"]`)
+    // block: 'nearest' —— 已在可见区内时不滚动，避免打扰用户浏览
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  })
+}
 
 // 新增/编辑表单
 const showForm = ref(false)
@@ -44,6 +68,12 @@ const imagePropName = ref('image')
 const imageUrl = ref('')
 const uploading = ref(false)
 const uploadError = ref('')
+
+// 文档属性管理（.pdf/.md/.txt/.docx/.xmind，交互模式与图片属性一致）
+const docPropName = ref('doc')
+const docUrl = ref('')
+const docUploading = ref(false)
+const docUploadError = ref('')
 
 /**
  * 计算实体显示颜色：自定义颜色 > 类型默认色
@@ -122,12 +152,27 @@ function getProperties() {
 }
 
 /**
- * 把图片 URL 写入指定属性键
+ * 把属性值（图片/文档 URL）写入指定属性键
  */
-function setImageProp(key, url) {
+function setProp(key, value) {
   const properties = getProperties()
-  properties[key] = url
+  properties[key] = value
   form.value.properties = JSON.stringify(properties, null, 2)
+}
+
+/**
+ * 生成不与现有属性重复的唯一键名（base, base_1, base_2 ...）
+ * @param {object} properties - 当前属性对象
+ * @param {string} base - 基础键名
+ * @returns {string} 唯一键名
+ */
+function uniquePropKey(properties, base) {
+  let key = base
+  let idx = 1
+  while (properties[key] !== undefined) {
+    key = `${base}_${idx++}`
+  }
+  return key
 }
 
 /**
@@ -137,7 +182,7 @@ function addImageUrl() {
   const key = imagePropName.value.trim()
   const url = imageUrl.value.trim()
   if (!key || !url) return
-  setImageProp(key, url)
+  setProp(key, url)
   imageUrl.value = ''
 }
 
@@ -153,13 +198,8 @@ async function uploadImage(event) {
     const { url } = await api.uploadFile(file)
     // 自动生成不重复的键名
     const properties = getProperties()
-    let key = imagePropName.value.trim() || 'image'
-    let idx = 1
-    const base = key
-    while (properties[key] !== undefined) {
-      key = `${base}_${idx++}`
-    }
-    setImageProp(key, `${API_BASE}${url}`)
+    const key = uniquePropKey(properties, imagePropName.value.trim() || 'image')
+    setProp(key, `${API_BASE}${url}`)
   } catch (err) {
     uploadError.value = err.message || '上传失败'
   } finally {
@@ -169,18 +209,51 @@ async function uploadImage(event) {
 }
 
 /**
- * 删除图片属性
+ * 添加文档 URL 属性（引用外部文档链接）
  */
-function removeImageProp(key) {
+function addDocUrl() {
+  const key = docPropName.value.trim()
+  const url = docUrl.value.trim()
+  if (!key || !url) return
+  setProp(key, url)
+  docUrl.value = ''
+}
+
+/**
+ * 上传本地文档（.pdf/.md/.txt/.docx/.xmind）并写入属性，
+ * 流程与图片上传一致：调 /api/upload/doc → 取回 URL → 写入唯一键
+ */
+async function uploadDoc(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  docUploadError.value = ''
+  docUploading.value = true
+  try {
+    const { url } = await api.uploadDoc(file)
+    const properties = getProperties()
+    const key = uniquePropKey(properties, docPropName.value.trim() || 'doc')
+    setProp(key, `${API_BASE}${url}`)
+  } catch (err) {
+    docUploadError.value = err.message || '上传失败'
+  } finally {
+    docUploading.value = false
+    event.target.value = ''
+  }
+}
+
+/**
+ * 删除图片/文档属性
+ */
+function removeProp(key) {
   const properties = getProperties()
   delete properties[key]
   form.value.properties = JSON.stringify(properties, null, 2)
 }
 
 /**
- * 补全图片地址（相对路径补成后端绝对 URL）
+ * 补全资源地址（相对路径补成后端绝对 URL，图片/文档通用）
  */
-function imageSrc(url) {
+function absUrl(url) {
   if (typeof url !== 'string') return ''
   if (url.startsWith('http')) return url
   return `${API_BASE}${url}`
@@ -194,6 +267,17 @@ const imagePropsList = computed(() => {
   const properties = getProperties()
   return Object.entries(properties)
     .filter(([key, value]) => isImageProp(key, value))
+    .map(([key, value]) => ({ key, value }))
+})
+
+/**
+ * 当前 JSON 中的文档属性列表：按 /doc-uploads/ 目录 + 文档扩展名识别，
+ * 与图片识别规则互斥，不会交叉误判（见 utils/property.js）
+ */
+const docPropsList = computed(() => {
+  const properties = getProperties()
+  return Object.entries(properties)
+    .filter(([key, value]) => isDocProp(key, value))
     .map(([key, value]) => ({ key, value }))
 })
 
@@ -242,7 +326,7 @@ async function removeEntity(id) {
 }
 
 onMounted(() => loadEntities())
-defineExpose({ loadEntities })
+defineExpose({ loadEntities, scrollToSelected })
 </script>
 
 <template>
@@ -265,11 +349,12 @@ defineExpose({ loadEntities })
     </div>
 
     <!-- 实体列表 -->
-    <div class="entity-list">
+    <div class="entity-list" ref="listRef">
       <div
         v-for="entity in filteredEntities"
         :key="entity.id"
         class="entity-item"
+        :data-id="entity.id"
         :class="{ selected: entity.id === selectedId }"
         @click="emit('select', entity.id)"
         @mouseenter="hoveredId = entity.id"
@@ -317,9 +402,9 @@ defineExpose({ loadEntities })
               :key="img.key"
               class="image-prop-item"
             >
-              <img :src="imageSrc(img.value)" class="image-thumb" />
+              <img :src="absUrl(img.value)" class="image-thumb" />
               <span class="image-key">{{ img.key }}</span>
-              <button class="icon-btn danger" @click="removeImageProp(img.key)" title="删除">✕</button>
+              <button class="icon-btn danger" @click="removeProp(img.key)" title="删除">✕</button>
             </div>
             <div v-if="imagePropsList.length === 0" class="empty-hint small">暂无图片属性</div>
           </div>
@@ -334,6 +419,34 @@ defineExpose({ loadEntities })
               {{ uploading ? '上传中...' : '上传本地图片' }}
             </label>
             <span v-if="uploadError" class="upload-error">{{ uploadError }}</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>文档属性（.pdf / .md / .txt / .docx / .xmind）</label>
+          <div class="doc-props">
+            <div
+              v-for="doc in docPropsList"
+              :key="doc.key"
+              class="doc-prop-item"
+            >
+              <span class="doc-icon">📄</span>
+              <span class="doc-key">{{ doc.key }}</span>
+              <a class="doc-name" :href="absUrl(doc.value)" target="_blank" :title="doc.value">{{ docFileName(doc.value) }}</a>
+              <button class="icon-btn danger" @click="removeProp(doc.key)" title="删除">✕</button>
+            </div>
+            <div v-if="docPropsList.length === 0" class="empty-hint small">暂无文档属性</div>
+          </div>
+          <div class="image-add-row">
+            <input class="input" v-model="docPropName" placeholder="属性名" style="width: 90px" />
+            <input class="input" v-model="docUrl" placeholder="粘贴文档 URL" />
+            <button class="btn" @click="addDocUrl" :disabled="!docUrl.trim()">添加</button>
+          </div>
+          <div class="image-upload-row">
+            <label class="btn image-upload-btn">
+              <input type="file" accept=".pdf,.md,.txt,.docx,.xmind" @change="uploadDoc" :disabled="docUploading" />
+              {{ docUploading ? '上传中...' : '上传本地文档' }}
+            </label>
+            <span v-if="docUploadError" class="upload-error">{{ docUploadError }}</span>
           </div>
         </div>
         <div class="form-group">
@@ -586,6 +699,45 @@ defineExpose({ loadEntities })
 .upload-error {
   color: var(--danger);
   font-size: 12px;
+}
+
+/* 文档属性：列表项为 图标 + 键名 + 可点击文件名 + 删除按钮 */
+.doc-props {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.doc-prop-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.doc-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.doc-key {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.doc-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--accent, #4ecdc4);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.doc-name:hover {
+  text-decoration: underline;
 }
 
 /* 颜色选择器 */

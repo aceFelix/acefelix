@@ -22,6 +22,7 @@ AceFelix 是一个**个人知识图谱系统**，帮助个人以图结构组织�
 │  │  ├── App.vue            布局 / 状态 / 路由          │  │
 │  │  ├── EntityPanel.vue    实体管理面板（CRUD）        │  │
 │  │  ├── RelationPanel.vue  关系管理面板（CRUD）        │  │
+│  │  ├── ReaderPanel.vue    阅读窗（图片/PDF/txt/md）    │  │
 │  │  ├── Graph3D.vue        3D 图 + 宇宙主题渲染        │  │
 │  │  ├── TypeManager.vue    实体类型管理                │  │
 │  │  ├── RelationTypeManager.vue  关系类型管理          │  │
@@ -83,10 +84,10 @@ AceFelix 是一个**个人知识图谱系统**，帮助个人以图结构组织�
 | `app/models.py` | 数据模型 | `Entity` / `Relation` dataclass，`EntityType` / `RelationType` 枚举，默认颜色/标签映射 |
 | `app/knowledge_graph.py` | 核心引擎 | 封装 `nx.DiGraph`；实体/关系 CRUD；动态类型表；图查询；JSON 持久化 + 乐观锁 + 备份 |
 | `app/ingest.py` | 抽取管线 | 文本 → 三元组 → 五道防噪闸 → 查重 → 写入；配置读 `config/ingest.toml` |
-| `api.py` | 入口/路由层 | REST 端点；类型管理；图查询接口；`/api/upload` 图片上传；`/uploads` 静态资源挂载 |
+| `api.py` | 入口/路由层 | REST 端点；类型管理；图查询接口；`/api/upload` 图片上传；`/api/upload/doc` 文档上传；`/uploads`、`/doc-uploads` 静态资源挂载 |
 | `mcp_server.py` | Agent 接入 | FastMCP stdio server；画像/搜索/图查询只读工具 + 新增实体/关系写工具（客户端侧默认需确认） |
 | `scripts/seed.py` | 数据初始化 | 首次运行时填充示例数据（已有数据跳过） |
-| `tests/` | 单元测试 | `test_ingest.py`（LLM 全 mock）+ `test_mcp_server.py` |
+| `tests/` | 单元测试 | `test_ingest.py`（LLM 全 mock）+ `test_mcp_server.py` + `test_upload_api.py` |
 | `requirements.txt` | 依赖清单 | Python 运行依赖 |
 
 ### 3.2 前端
@@ -95,8 +96,9 @@ AceFelix 是一个**个人知识图谱系统**，帮助个人以图结构组织�
 |---|---|---|
 | `App.vue` | 应用壳 | 三栏布局（左面板 / 中央 3D / 右侧详情）；状态协调；搜索 |
 | `Graph3D.vue` | 3D 可视化 | 力导向图；星球节点；星空/银河/黑洞/星云背景；聚焦/路径/重置交互 |
-| `EntityPanel.vue` | 实体管理 | 列表/过滤/搜索；新增编辑弹窗（含图片属性）；选中/悬停名称着色 |
+| `EntityPanel.vue` | 实体管理 | 列表/过滤/搜索；新增编辑弹窗（含图片/文档属性）；选中/悬停名称着色 |
 | `RelationPanel.vue` | 关系管理 | 关系列表 CRUD，中文标签显示 |
+| `ReaderPanel.vue` | 阅读窗 | 图片/PDF/txt/md/docx 中间区域就地浏览；md/docx 转 HTML 后经 DOMPurify 消毒；xmind 降级新窗口 |
 | `TypeManager.vue` | 实体类型管理 | 增删改查，改色/改名级联，删除保护 |
 | `RelationTypeManager.vue` | 关系类型管理 | 增删改查，中文标签，删除保护 |
 | `StatsBar.vue` | 统计栏 | 实体数 / 关系数 / 类型分布 |
@@ -179,7 +181,8 @@ acefelix/
 │   ├── data/
 │   │   ├── graph.json          # 主数据文件（本地数据，不入库）
 │   │   └── backups/            # 滚动备份（保留 20 份）
-│   └── uploads/                # 上传的图片文件
+│   ├── uploads/                # 上传的图片文件
+│   └── doc_uploads/            # 上传的文档文件（pdf/md/txt/docx/xmind）
 ├── skills/
 │   └── acefelix-knowledge/     # jarvis Skill（图谱使用指引）
 ├── frontend/
@@ -193,6 +196,7 @@ acefelix/
 │   │       ├── Graph3D.vue
 │   │       ├── EntityPanel.vue
 │   │       ├── RelationPanel.vue
+│   │       ├── ReaderPanel.vue
 │   │       ├── TypeManager.vue
 │   │       ├── RelationTypeManager.vue
 │   │       └── StatsBar.vue

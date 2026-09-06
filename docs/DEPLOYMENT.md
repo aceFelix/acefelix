@@ -220,12 +220,13 @@ server {
 | `backend/data/graph.json` | 主数据（实体/关系/类型/版本） | **必须备份** |
 | `backend/data/backups/` | 每次保存前的滚动备份（保留 20 份） | 随主数据一起 |
 | `backend/uploads/` | 上传的图片文件 | 图片属性引用它们，**需一并备份** |
+| `backend/doc_uploads/` | 上传的文档文件（pdf/md/txt/docx/xmind） | 文档属性引用它们，**需一并备份** |
 | `backend/logs/api.log` | 运行日志 | 按需 |
 
 ### 4.2 手动备份
 
 ```bash
-tar -czf kg-backup.tar.gz backend/data backend/uploads
+tar -czf kg-backup.tar.gz backend/data backend/uploads backend/doc_uploads
 ```
 
 ### 4.3 数据迁移注意事项
@@ -292,13 +293,13 @@ taskkill -F -PID <PID>           # 结束进程
 处理：刷新页面重新编辑即可（这是乐观锁的正常行为）
 ```
 
-### 5.8 图片属性在详情面板不显示
+### 5.8 图片/文档属性在详情面板不显示
 
 ```
-原因：图片 URL 无法访问
+原因：图片/文档 URL 无法访问
 检查：
-1. 后端是否运行（图片通过 http://127.0.0.1:8800/uploads/ 提供）
-2. 本地上传的图片是否还在 backend/uploads/
+1. 后端是否运行（图片通过 http://127.0.0.1:8800/uploads/ 、文档通过 http://127.0.0.1:8800/doc-uploads/ 提供）
+2. 本地上传的图片是否还在 backend/uploads/ 、文档是否还在 backend/doc_uploads/
 3. 粘贴的外部 URL 是否可公开访问
 ```
 

@@ -27,6 +27,26 @@ async function request(path, options = {}) {
   return res.json()
 }
 
+/**
+ * 通用文件上传封装（multipart/form-data，不能走 JSON request）
+ * @param {string} path - 上传接口路径（/upload 图片，/upload/doc 文档）
+ * @param {File} file - 待上传文件
+ * @returns {Promise<{url: string}>} 后端返回的访问 URL 等信息
+ */
+async function uploadRequest(path, file) {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    body: form,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || '上传失败')
+  }
+  return res.json()
+}
+
 export const api = {
   // 获取元数据
   getMeta: () => request('/meta'),
@@ -67,18 +87,8 @@ export const api = {
   getStats: () => request('/stats'),
 
   // 文件上传（图片），返回 { url }
-  uploadFile: (file) => {
-    const form = new FormData()
-    form.append('file', file)
-    return fetch(`${BASE_URL}/upload`, {
-      method: 'POST',
-      body: form,
-    }).then(async (res) => {
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }))
-        throw new Error(err.detail || '上传失败')
-      }
-      return res.json()
-    })
-  },
+  uploadFile: (file) => uploadRequest('/upload', file),
+
+  // 文档上传（.pdf/.md/.txt/.docx/.xmind），返回 { url, name, size }
+  uploadDoc: (file) => uploadRequest('/upload/doc', file),
 }

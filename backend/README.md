@@ -21,11 +21,13 @@ backend/
 │   └── seed.py            # 示例数据初始化（首次运行时生成初始图谱）
 ├── tests/                 # 单元测试（LLM 调用全部 mock）
 │   ├── test_ingest.py     # 抽取管线测试（五道防噪闸 + 查重）
-│   └── test_mcp_server.py # MCP Server 工具测试
+│   ├── test_mcp_server.py # MCP Server 工具测试
+│   └── test_upload_api.py # 文档上传接口测试（白名单/大小/文件名清洗）
 ├── data/                  # 运行时数据（不入库，clone 后运行 seed.py 生成）
 │   ├── graph.json         # 图谱主数据
 │   └── backups/           # 自动滚动备份（最多 20 份）
 ├── uploads/               # 前端上传的图片（不入库）
+├── doc_uploads/           # 前端上传的文档 pdf/md/txt/docx/xmind（不入库）
 ├── logs/                  # 运行日志（不入库）
 └── scratch/               # 本地调试残留文件（不入库，可随手清理）
 ```

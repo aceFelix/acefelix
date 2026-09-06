@@ -55,6 +55,8 @@ jobs:
           python tests/test_mcp_server.py
           # 抽取管线测试：LLM 全 mock，无需 API Key；覆盖五道防噪闸与查重（含闲聊零写入负例）
           python tests/test_ingest.py
+          # 文档上传接口测试：扩展名白名单/大小限制/文件名清洗/静态访问 + 图片上传回归
+          python tests/test_upload_api.py
 
   frontend:
     name: Frontend build
