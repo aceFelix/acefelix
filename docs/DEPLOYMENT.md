@@ -1,4 +1,4 @@
-# AceFelix 知识图谱 · 部署与运维
+# aceFelix 知识图谱 · 部署与运维
 
 > 版本：0.1.0 ｜ 更新日期：2026-08-23
 
@@ -46,6 +46,14 @@ npm run dev          # 启动 Vite，监听 http://127.0.0.1:5173
 ### 2.3 Windows 一键启动
 
 项目根目录提供 `start.bat`，双击即可同时拉起前后端。
+
+行为说明：
+
+- 端口已被占用时跳过启动（提示「已在运行」），否则派生最小化窗口 `AceFelix-Backend` / `AceFelix-Frontend` 运行服务
+- **就绪探测**：每秒 HTTP 探测 `/api/stats` 与前端首页（后端上限 30s / 前端 60s，覆盖 Vite 冷启动依赖预构建），确认就绪后才打开浏览器，避免固定等待导致的报错页
+- 启动输出追加写入 `logs/backend.log` / `logs/frontend.log`（已被 .gitignore 的 `*.log` 忽略）；派生窗口异常时先看这两个日志
+- 自动创建 `frontend\.tmp`（Vite/esbuild 临时目录）；TMP/TEMP 指向该目录避免系统临时目录权限问题
+- 停止服务：关闭对应标题的最小化窗口
 
 ---
 

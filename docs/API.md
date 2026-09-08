@@ -1,4 +1,4 @@
-# AceFelix 知识图谱 · API 文档
+# aceFelix 知识图谱 · API 文档
 
 > Base URL：`http://127.0.0.1:8800`
 > 全部接口返回 JSON；FastAPI 自动生成交互式文档：`http://127.0.0.1:8800/docs`

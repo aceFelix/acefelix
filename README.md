@@ -1,4 +1,4 @@
-# AceFelix 个人知识图谱
+# aceFelix 个人知识图谱
 
 [![CI](https://github.com/aceFelix/acefelix/actions/workflows/ci.yml/badge.svg)](https://github.com/aceFelix/acefelix/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -86,7 +86,7 @@ acefelix/
 
 > 完整步骤见 [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)。
 >
-> 💡 **Windows 一键启动**：直接双击 `start.bat`，自动拉起后端（:8800）与前端（:5173）并打开浏览器。
+> 💡 **Windows 一键启动**：直接双击 `start.bat`，自动拉起后端（:8800）与前端（:5173），**就绪探测确认服务可响应后**才打开浏览器；启动输出落盘 `logs/` 便于排查。
 
 ### 环境要求
 

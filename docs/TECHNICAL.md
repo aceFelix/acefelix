@@ -1,4 +1,4 @@
-# AceFelix 知识图谱 · 技术文档
+# aceFelix 知识图谱 · 技术文档
 
 > 版本：0.1.0 ｜ 更新日期：2026-08-23
 > 本文面向开发者，详述核心实现机制与关键代码路径。
@@ -13,7 +13,7 @@
   "entities": [
     {
       "id": "1e2b0a7e-...",
-      "name": "AceFelix",
+      "name": "aceFelix",
       "type": "Person",
       "properties": { "logo": "http://127.0.0.1:8800/uploads/xxx.png" },
       "color": "#ff6b6b",
