@@ -1,7 +1,7 @@
 # aceFelix 个人知识图谱
 
 [![CI](https://github.com/aceFelix/acefelix/actions/workflows/ci.yml/badge.svg)](https://github.com/aceFelix/acefelix/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Node](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -229,4 +229,4 @@ cp -r skills/acefelix-knowledge ~/.jarvis/skills/
 
 欢迎通过 Issue 反馈问题、通过 PR 参与共建（提交前请确认后端单测通过、前端构建通过，文档同步更新）。
 
-本项目基于 [MIT License](./LICENSE) 开源，© 2026 aceFelix。
+本项目基于 [Apache License 2.0](./LICENSE) 开源，© 2026 aceFelix。
